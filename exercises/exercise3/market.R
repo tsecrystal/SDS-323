@@ -34,6 +34,10 @@ mkt = scale(mkt[-1], center=TRUE, scale=TRUE)
 mu = attr(mkt,"scaled:center")
 sigma = attr(mkt,"scaled:scale")
 
+mkt_long <- melt(mkt)  # convert matrix to long dataframe
+mkt <- spread(mkt_long, Var2, value)# convert long dataframe to wide
+
+
 # Run k-means plus plus.
 clust2 = kmeanspp(mkt[-1], k=6, nstart=25)
 
@@ -42,12 +46,10 @@ clust2$center[2,]*sigma + mu
 clust2$center[4,]*sigma + mu
 
 # A few plots with cluster membership shown
-# qplot is in the ggplot2 library
+ggplot(data = mkt, 
+       aes(x = travel, y = food, color = factor(clust2$cluster))) +
+  geom_point()
 
-mkt_long <- melt(mkt)  # convert matrix to long dataframe
-mkt <- spread(mkt_long, Var2, value)# convert long dataframe to wide
-
-qplot(travel, food, data=mkt, color=factor(clust2$cluster))
-qplot(photo_sharing, family, data=mkt, color=factor(clust2$cluster))
-
-
+ggplot(data = mkt, 
+       aes(x = current_events, y = politics, color = factor(clust2$cluster))) +
+  geom_point()
