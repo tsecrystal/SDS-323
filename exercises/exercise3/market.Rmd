@@ -1,0 +1,115 @@
+---
+title: "market"
+author: "Crystal Tse"
+date: "4/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE}
+library(mosaic)
+library(tidyverse)
+library(ggplot2)
+library(LICORS)  # for kmeans++
+library(foreach)
+library(reshape2)
+library(knitr)
+library(kableExtra)
+
+mkt = read.csv("social_marketing.csv")
+```
+
+```{r echo=FALSE}
+# try hierarchical clustering
+# convert integer variables to numeric to use scale() function
+# mkt[2:37] <- lapply(mkt[2:37], as.numeric)
+# mkt = mkt[-1] %>% mutate_if(is.numeric, scale(mkt, center=TRUE, scale=TRUE)) 
+
+# Form a pairwise distance matrix using the dist function
+mkt_distance_matrix = dist(mkt[-1], method='euclidean')
+
+# Now run hierarchical clustering
+hier_mkt = hclust(mkt_distance_matrix, method='complete')
+# Plot the dendrogram
+# plot(hier_mkt, cex=0.8)
+
+cluster1 = cutree(hier_mkt, k=5)
+summary(factor(cluster1))
+
+```
+
+```{r echo = FALSE}
+# try K-means++ clustering
+# mkt <- subset(mkt, select = -c(X))  # remove the anonymous identifier
+
+# shows that there are currently points that are spam and adult...want to remove
+ggplot(data = mkt, 
+       aes(x = spam, y = adult)) +
+  geom_point()
+
+mkt <- subset(mkt, !(spam > 0 | adult > 0))
+
+ggplot(data = mkt, 
+       aes(x = spam, y = adult)) +
+  geom_point()
+
+mkt = subset(mkt, select = -c(spam, adult) )
+# Center and scale the data
+# NOT SURE WE NEED TO DO THIS IF EVERYTHING IS A COUNT
+mkt = scale(mkt[-1], center=TRUE, scale=TRUE)
+
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(mkt,"scaled:center")
+sigma = attr(mkt,"scaled:scale")
+
+mkt_long <- reshape2::melt(mkt)  # convert matrix to long dataframe
+mkt <- spread(mkt_long, Var2, value)# convert long dataframe to wide
+
+
+# Run k-means plus plus.
+clust2 = kmeanspp(mkt[-1], k=3, nstart=25)
+
+c1 = clust2$center[1,]*sigma + mu
+c2 = clust2$center[2,]*sigma + mu
+c3 = clust2$center[3,]*sigma + mu
+```
+
+Below are some plots that demonstrate the different market segments in NutrientH2O's followers.
+```{r echo = FALSE}
+# A few plots with cluster membership shown
+ggplot(data = mkt,
+       aes(x = sports_fandom, y = photo_sharing, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")
+
+ggplot(data = mkt, 
+       aes(x = sports_fandom, y = parenting, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")
+
+
+# large portion of their market is focused on health/nutrition and personal fitness
+ggplot(data = mkt, 
+       aes(x = health_nutrition, y = personal_fitness, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")
+```
+
+```{r echo = FALSE}
+# show the variables that are above 4 or the top 5 variables that describe each cluster
+# print(c2>4)
+print(c1[order(c1, decreasing = TRUE)][1:5])%>% kable(caption = "Cluster 1") %>%  kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+```{r echo = FALSE}
+print(c2[order(c2, decreasing = TRUE)][1:5])%>% kable(caption = "Cluster 2") %>% kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+```{r echo = FALSE}
+(c3[order(c3, decreasing = TRUE)][1:5]) %>% kable(caption = "Cluster 3") %>% kable_styling( bootstrap_options = "striped", full_width = F)
+```
+It seems as though one cluster has relatively inactive members that do not skew strongly towards certain topics in their tweets; these do not present a strong demographic to market towards.
+
+However, the other two clusters present clearer trends. One of these clusters represents a group of followers that is very interested in health and nutrition, sharing photos, cooking, and politics. This suggests that expanding to a platform that showcases more photos (such as Instagram) and emphasizing the palatability and picture-worthy aspects of NutrientH2O products would be highly effective.
+
+Another cluster shows that many followers of Nutrient H2O are devoted to sports, religion, food, and parenting. This suggests that targeting parents during certain sports seasons may be effective, for example.
