@@ -1,0 +1,168 @@
+---
+title: "Exercise 3"
+author: Crystal Tse, Kyle Carter, Jinfang Yan
+date: 4/21/2020
+output: html_document
+---
+
+```{r setup, include = FALSE, message = FALSE, echo = FALSE}
+
+packs <- c("tidyverse","tidyr","corrplot","factoextra","cluster","dendextend","kableExtra","ggcorrplot","mosaic","psych","gridExtra")
+lapply(packs, library, character.only = TRUE)
+wine <- read.csv("data/wine.csv")
+
+set.seed(343)
+```
+
+# Wine
+
+This data set includes 11 feature variables, a color factor variable (red and white), and a scale from 1-10 of wine quality.
+
+```{r echo=FALSE}
+#remove the categorical variables and scale
+wine_s <- as.data.frame(scale(wine[,1:11]))
+set.seed(343)
+
+# EDA-----
+ggplot(wine, aes(quality, fill=color))+
+  geom_histogram(binwidth = 0.5, col="black") +  
+  facet_grid(color ~ .)+
+  labs(title="Quality For Red and White Wines")
+
+wine %>% 
+  gather(Attributes, value, 1:11) %>%
+  ggplot(aes(x=value, fill=Attributes)) +
+  geom_histogram(colour="black", show.legend=FALSE) +
+  facet_wrap(~Attributes, scales="free_x") +
+  labs(x="Values", y="Frequency",
+       title="Wine Attributes Histograms") +
+  theme_bw()
+
+cormat <- round(cor(wine_s), 2)
+ggcorrplot(cormat, hc.order = TRUE, type = "lower", outline.color = "white") + ggtitle("Variable Correlation Plot")
+
+ggplot(wine, aes(x=factor(quality), y=alcohol)) +
+  geom_boxplot() +
+  theme_bw() +
+  labs(title="Alcohol and Quality are Postively Correlated", x="Quality", y="Alcohol Content (%)")
+
+```
+
+It appears that the red wines tend to be of lower quality than the white wines, and there are more white wines in the data set than red wines. The variables residual.sugar and chlorides have the most positive skew, however most of the variables are skewed, with pH and citric.acid the only variables that resemble a normal distribution. Some of the variables are correlated with each other, such as free.sulfur.dioxide and total.sulfur.dioxide, and some are negatively correlated, such as density and alcohol. There is a positive relationship between alcohol and quality. This dataset could benefit from PCA in a factor analysis context to reduce the number of factors and make the results more interpretable.
+
+## PCA
+
+``` {r echo=FALSE}
+winepca <- prcomp(wine[, 1:11], scale=TRUE)
+fviz_screeplot(winepca, addlabels=TRUE) + geom_vline(xintercept=4, linetype=5, col="red")
+
+```
+
+
+Looking at the scree plot, which plots the fraction of the total variance in the data against the principal components. We can see that there is no clear elbow but 4 components will suffice as it looks like there is a bend at that point. These 4 components explain about 73% of the variance. The biplot below shows that total.sulfur.dioxide and free.sulfur.dioxide are correlated in PC1 and density makes the largest contribution to PC2; density and acohol are inversely correlated. In PC3, pH loads highly, and citric.acid is inversely correlated. For PC4, the sulphates variable is large and negative; high values for sulphates will be negatively correlated with this component.
+
+
+```{r echo=FALSE}
+#biplot
+fviz_pca_var(winepca, col.var="contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE) + 
+  theme_minimal() + 
+  ggtitle("Variables - PCA")
+
+#take top 4 principal components by using the elbow method for scree plot, rotate
+winepca.df <- data.frame(winepca$rotation[, 1:4])
+kable(winepca.df, format = 'html') %>%
+  kable_styling(bootstrap_options = c('hover', 'striped'))
+
+wine2 <- cbind(wine, winepca$x)
+ggplot(wine2, aes(x=PC1, y=PC2, col = color, fill = color)) +
+  geom_point(shape = 21, col = "black", alpha=0.5) +
+  stat_ellipse(geom = "polygon", col = "grey", alpha = 0.4)+
+  ggtitle("Red and White Wines on a Biplot")
+
+
+```
+
+PC1 and PC2 show a large cluster that has two smaller, distinct clusters. However, there is not much separation between the two. This brings us to k-means, where we will try to discern the optimal number of clusters.
+
+
+## K-Means Clustering
+
+To determine the optimal number of clusters, we will look at an elbow plot, which plots the total within sum of squares. This measures the "compactness" of the clusters.
+
+```{r echo=FALSE}
+fviz_nbclust(wine_s, kmeans, method="wss")
+gap_stat <- clusGap(wine_s, FUN = kmeans, nstart = 25,
+                    K.max = 10, B = 50)
+fviz_gap_stat(gap_stat)
+
+```
+
+There is no clear bend in the plot, but it looks like 3 clusters is the best choice. We also use the gap statistic, which suggests 5 clusters.
+
+```{r echo=FALSE}
+kfinal <- kmeans(wine_s, 5, nstart=25)
+p1 <- fviz_cluster(kfinal, data=wine_s, geom = "point", ellipse.type = "norm")
+k3 <-kmeans(wine_s, 3, nstart=50)
+p2 <-fviz_cluster(k3, data=wine_s, geom = "point", ellipse.type = "norm")
+
+library(gridExtra)
+# Subplot
+grid.arrange(p1, p2, ncol=2)
+
+```
+
+As we can see, there is much overlap between red and white wine as k-means tries to incorporate quality. If we reference the biplot above, the red wines cluster on the left and the white wines on the right. We will use 5 as the optimal number of clusters as given by the gap statistic. With 5 clusters, the red wines are split into two groups
+
+## Hierarchical Clustering
+
+First, we will create a distance function, then we can use the elbow and gap statistic methods to find the optimal numer of clusters, similar to k-means.
+
+
+```{r echo=FALSE}
+
+wine_dist <- dist(wine_s)
+h1 <- hclust(wine_dist, method="average")
+plot(h1)
+rect.hclust(h1, k = 3, border = "red") 
+clusters <- cutree(h1, k = 3) 
+plot(wine, col = clusters)
+
+
+```
+
+
+
+
+
+
+
+## PCA and Clustering
+
+
+
+
+### PCA with K-Means
+```{r echo=FALSE}
+
+
+
+```
+
+
+
+
+
+
+### PCA with Hierarchical
+```{r echo=FALSE}
+
+scores <- winepca$x
+D_NCI = dist(scores[,1:5])
+hclust_NCI = hclust(D_NCI, method='complete')
+plot(hclust_NCI)
+loadings = winepca$rotation
+
+
+```
