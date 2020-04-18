@@ -1,0 +1,38 @@
+---
+title: "Untitled"
+author: "Crystal Tse"
+date: "4/11/2020"
+output: md_document
+---
+
+1. Why can’t I just get data from a few different cities and run the regression of “Crime” on “Police” to understand how more cops in the streets affect crime? (“Crime” refers to some measure of crime rate and “Police” measures the number of cops in a city.)
+
+Clearly, cities with a lot of crime will want to hire more police, and police departments may hire more officers if they anticipate an increase in crime. The fact that the crime rate and number of officers on the police force are correlated means that we cannot simply run a regression to find the effect of police on crime. 
+
+  Numerous other factors may influence the crime rate on a given day other than the number of police officers. Just because there are lots of police on a given day, that does not mean that police caused the crime rate to change. For instance, if a lot of people are out on vacation, crime rates could skyrocket, but the number of police on the street could be the same as usual.
+
+  Thus, the fluctuations of crime cannot solely be attributed to the amount of police on a given day. To understand the influence of police on crime, you need to control for the other factors that may also influence crime. These could range from the day of week (people may be more likely to be robbed during working hours), time of year (people may be robbed if they're out of town for the holidays), how affluent a city is (the less affluent, the more criminal activity is native to the area), and more. 
+
+2. How were the researchers from UPenn able to isolate this effect? Briefly describe their approach and discuss their result in the “Table 2” below, from the researchers' paper.
+  
+  The researchers from UPenn wanted to generate a situation where there were a lot of police on the street for reasons unrelated to crime. The way they accomplished this was by using data from "high-alert days." These alerts, which included various scales of alarm, such as red and orange, were part of a terrorism alert system employed in Washington D.C. as it was a likely target for terrorist attacks. There were additional police stationed in public spaces such as malls in case of a terrorism incident; the increase in police forces stationed was not due to street crime. In this way, they were able to capture police's impact on crime.
+  
+  They found that when more police were on the street for reasons unrelated to street crime, the crime rate decreased, showing that police were effective at deterring criminal activity.
+  
+  The first column of Table 2 shows a very simple regression with daily D.C. crime rates against a dummy variable for the terror alert level (where 1 indicates high alert). The second column adds an additional control for the log of ridership on the Metro, or public transportation. Public transportation ridership is a proxy for tourism. This variable is added to the model to help control for the number of tourists, because tourism may decrease if a terror alert is issued; criminals target tourists.
+  
+  The coefficient on the alert level is statistically significant at the 5 percent level, and shows that on high alert days, total crimes decrease by an average of seven crimes per day, or about 6.6 percent. For a 10 percent increase in Metro ridership, the number of crimes increases by an average of 1.7 per day. This has a relatively small effect on crime, even though the variable is highly significant (p-value < 0.01).
+  
+3. Why did they have to control for Metro ridership? What was that trying to capture?
+
+As stated above, public transportation (Metro) ridership is a proxy for tourism. This variable is added to the model to help control for the number of tourists, because tourism may decrease if a terror alert is issued. If there are more tourists out and about, this will tend to impact the crime rate since there are more potential targets for criminals.
+
+4. Concentrate the first column of Table 4. Can you describe the model being estimated here? What is the conclusion?
+
+The first column runs a regression with interaction variables on the high alert and district 1, as compared to the interaction of high alert and other districts. This indicates that the terror alert might affect crime in District 1 (the National Mall) differently than the other districts in Washington D.C. The model also includes a variable that controls for metro ridership as a proxy for tourism, which is significant at the 10% level. 
+
+The table indicates that on high alert days, the number of crimes in district 1 decreases by about 2.62, holding all else fixed. This is significant at the 1% level, meaning that crime in district 1 is indeed affected uniquely by the terror alert system. 
+
+The other districts are estimated to have 0.57 fewer crimes on average, holding all other variables fixed; however, this coefficient is not significant. The variable log(metro ridership) is significant at the 10% level but has a very small magnitude: a 10% increase in metro ridership, a proxy for a 10% increase in the number of tourists, only tends to increase the number of crimes by 0.247.
+
+In conclusion, the number of police is shown to drastically reduce the crime rate, but this effect is concentrated in District 1, or the National Mall. On high alert days, where there are lots of police on the streets for reasons unrelated to crime, the number of crimes committed in District 1 decreases by 2.62, holding all else fixed. This indicates that expanding the police force is effective in deterring crime, although police departments may need to strategically deploy police officers to certain regions, as the main impact was shown in District 1, but not the other districts.
