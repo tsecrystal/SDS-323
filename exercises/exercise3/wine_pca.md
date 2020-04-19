@@ -4,11 +4,7 @@ Wine
 This data set includes 11 feature variables, a color factor variable
 (red and white), and a scale from 1-10 of wine quality.
 
-![](wine_pca_files/figure-markdown_strict/unnamed-chunk-1-1.png)
-
-    ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
-
-![](wine_pca_files/figure-markdown_strict/unnamed-chunk-1-2.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-1-3.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-1-4.png)
+![](wine_pca_files/figure-markdown_strict/unnamed-chunk-1-1.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-1-2.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-1-3.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-1-4.png)
 
 It appears that the red wines tend to be of lower quality than the white
 wines, and there are more white wines in the data set than red wines.
