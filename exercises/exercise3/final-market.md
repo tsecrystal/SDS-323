@@ -318,6 +318,8 @@ a secondary cluster.
 
 ![](final-market_files/figure-markdown_strict/unnamed-chunk-13-1.png)
 
+Politics and food are not highly correlated, so targeting both in marketing campaigns is not advised.
+
 ![](final-market_files/figure-markdown_strict/unnamed-chunk-14-1.png)
 
 Here, food and parenting also seem to be highly correlated.
