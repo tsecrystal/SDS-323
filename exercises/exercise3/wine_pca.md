@@ -247,6 +247,7 @@ alcohol
 </tr>
 </tbody>
 </table>
+
 ![](wine_pca_files/figure-markdown_strict/unnamed-chunk-4-1.png)
 
 PC1 and PC2 show a large cluster that has two smaller, distinct
