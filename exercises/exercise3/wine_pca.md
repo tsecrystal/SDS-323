@@ -309,6 +309,8 @@ of one category. There is too much mediocrity in this dataset for
 k-means to be effective in judging quality. Therefore, k-means is not
 the best approach for finding wines of good quality.
 
+#### Removing Mediocrity
+
 ![](wine_pca_files/figure-markdown_strict/unnamed-chunk-8-1.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-8-2.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-8-3.png)
 
 Here, we remove the mediocre wines and look only at wines that are bad
