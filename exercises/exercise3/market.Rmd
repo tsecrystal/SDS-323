@@ -2,14 +2,14 @@
 title: "market"
 author: "Crystal Tse"
 date: "4/12/2020"
-output: html_document
+output: md_document
+always_allow_html: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+knitr::opts_chunk$set(echo=FALSE, cache = TRUE,autodep = TRUE ,cache.comments = FALSE, message = FALSE, warning = FALSE)
 
-```{r echo=FALSE}
+# reordered with the PCA in front
 library(mosaic)
 library(tidyverse)
 library(ggplot2)
@@ -18,48 +18,20 @@ library(foreach)
 library(reshape2)
 library(knitr)
 library(kableExtra)
-
-mkt = read.csv("social_marketing.csv")
+library(cluster)
+library(factoextra)
 ```
 
 ```{r echo=FALSE}
-# try hierarchical clustering
-# convert integer variables to numeric to use scale() function
-# mkt[2:37] <- lapply(mkt[2:37], as.numeric)
-# mkt = mkt[-1] %>% mutate_if(is.numeric, scale(mkt, center=TRUE, scale=TRUE)) 
-
-# Form a pairwise distance matrix using the dist function
-mkt_distance_matrix = dist(mkt[-1], method='euclidean')
-
-# Now run hierarchical clustering
-hier_mkt = hclust(mkt_distance_matrix, method='complete')
-# Plot the dendrogram
-# plot(hier_mkt, cex=0.8)
-
-cluster1 = cutree(hier_mkt, k=5)
-summary(factor(cluster1))
-
-```
-
-```{r echo = FALSE}
-# try K-means++ clustering
-# mkt <- subset(mkt, select = -c(X))  # remove the anonymous identifier
-
-# shows that there are currently points that are spam and adult...want to remove
-ggplot(data = mkt, 
-       aes(x = spam, y = adult)) +
-  geom_point()
-
+mkt = read.csv("social_marketing.csv")
 mkt <- subset(mkt, !(spam > 0 | adult > 0))
-
-ggplot(data = mkt, 
-       aes(x = spam, y = adult)) +
-  geom_point()
 
 mkt = subset(mkt, select = -c(spam, adult) )
 # Center and scale the data
-# NOT SURE WE NEED TO DO THIS IF EVERYTHING IS A COUNT
 mkt = scale(mkt[-1], center=TRUE, scale=TRUE)
+
+#remove the categorical variables and scale
+# mkt <- as.data.frame(scale(mkt[-1]))
 
 # Extract the centers and scales from the rescaled data (which are named attributes)
 mu = attr(mkt,"scaled:center")
@@ -67,37 +39,56 @@ sigma = attr(mkt,"scaled:scale")
 
 mkt_long <- reshape2::melt(mkt)  # convert matrix to long dataframe
 mkt <- spread(mkt_long, Var2, value)# convert long dataframe to wide
+```
 
+From the below summary, it appears as though 15 principal components are necessary to explain about 75% of the variation in the data. This indicates that the data is not easily summarized; the subject matter variables are not differentiated enough to generate principal components that explain a large percentage of the variation in the data. For example, food, health_nutrition, and cooking could all be overlapping but lead to small fluctuations that lead to overfitting and more principal components than necessary.
+
+```{r echo = FALSE}
+# Now look at PCA of the (average) survey responses.  
+# This is a common way to treat survey data
+tweets <- mkt
+PCAtweet = prcomp(tweets, scale=TRUE)
+summary(PCAtweet)
+
+```
+
+The scree plot below shows that PCA is not a good method for summarizing the data. The "elbow" in this plot that shows the dropping-off point, or diminishing marginal utility, of adding more principal components seems to be after only one principal component. In reality, this is not reasonable since this component only explains 13% of the variation in the data. Fifteen principal components are needed to explain 75% of the data, but this makes market segmentation more confusing and convoluted.
+
+There are too many principal components needed to explain the variation in the data. Each principal component pulls apart a market segment, and in doing so, takes us away from the big picture audience and plunges us too much in the messy details.
+
+```{r echo = FALSE}
+fviz_screeplot(PCAtweet, addlabels=TRUE)
+
+```
+
+Instead, K-means clustering might generate more interpretable and concise results.
+```{r echo = FALSE}
+# try K-means++ clustering
+
+# choose the optimal K
+# fviz_nbclust(mkt, kmeans, method="wss")
+# gap_stat <- clusGap(mkt, FUN = kmeans, nstart = 25,
+#                     K.max = 10, B = 50)
+# fviz_gap_stat(gap_stat)
+```
+
+After determining the Gap statistic, the optimal K, or number of clusters, is shown to be about 3.
+```{r echo = FALSE}
 
 # Run k-means plus plus.
-clust2 = kmeanspp(mkt[-1], k=3, nstart=25)
+clust2 = kmeanspp(tweets[-1], k=3, nstart=25)  # edit with optimal_k
 
 c1 = clust2$center[1,]*sigma + mu
 c2 = clust2$center[2,]*sigma + mu
 c3 = clust2$center[3,]*sigma + mu
 ```
 
-Below are some plots that demonstrate the different market segments in NutrientH2O's followers.
-```{r echo = FALSE}
-# A few plots with cluster membership shown
-ggplot(data = mkt,
-       aes(x = sports_fandom, y = photo_sharing, color = factor(clust2$cluster))) +
-  geom_point(position = "jitter")
+Below are the top 5 categories for each cluster, or group of individuals that are closest together in their tweets across all the 37 different topics that were measured. Although "chatter" appears for all 3 clusters, it is not a very significant measure that can be targeted since it is somewhat of a "miscellaneous" category and is fraught with noise. However, it is a gauge of how relatively active each cluster is, and was therefore kept in these charts.
 
-ggplot(data = mkt, 
-       aes(x = sports_fandom, y = parenting, color = factor(clust2$cluster))) +
-  geom_point(position = "jitter")
-
-
-# large portion of their market is focused on health/nutrition and personal fitness
-ggplot(data = mkt, 
-       aes(x = health_nutrition, y = personal_fitness, color = factor(clust2$cluster))) +
-  geom_point(position = "jitter")
-```
+The value "X" shown is the number of standard deviations above the average each cluster tweets about a certain topic.
 
 ```{r echo = FALSE}
 # show the variables that are above 4 or the top 5 variables that describe each cluster
-# print(c2>4)
 print(c1[order(c1, decreasing = TRUE)][1:5])%>% kable(caption = "Cluster 1") %>%  kable_styling(bootstrap_options = "striped", full_width = F)
 ```
 
@@ -108,8 +99,78 @@ print(c2[order(c2, decreasing = TRUE)][1:5])%>% kable(caption = "Cluster 2") %>%
 ```{r echo = FALSE}
 (c3[order(c3, decreasing = TRUE)][1:5]) %>% kable(caption = "Cluster 3") %>% kable_styling( bootstrap_options = "striped", full_width = F)
 ```
+
+
 It seems as though one cluster has relatively inactive members that do not skew strongly towards certain topics in their tweets; these do not present a strong demographic to market towards.
 
 However, the other two clusters present clearer trends. One of these clusters represents a group of followers that is very interested in health and nutrition, sharing photos, cooking, and politics. This suggests that expanding to a platform that showcases more photos (such as Instagram) and emphasizing the palatability and picture-worthy aspects of NutrientH2O products would be highly effective.
 
 Another cluster shows that many followers of Nutrient H2O are devoted to sports, religion, food, and parenting. This suggests that targeting parents during certain sports seasons may be effective, for example.
+
+Below are some plots that demonstrate the different market segments in NutrientH2O's followers, focusing on variables that had a strong showing in the 3 clusters.
+
+The plot below shows that photo sharing and sports fanaticism are not strongly correlated, so targeting the intersection of those two groups is not recommended.
+```{r echo = FALSE}
+# A few plots with cluster membership shown
+ggplot(data = mkt,
+       aes(x = sports_fandom, y = photo_sharing, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")
+```
+
+However, sports fanaticism and parenting seem to be highly correlated. It is worth investigating parents that are into sports as a potential market segment.
+```{r echo=FALSE}
+ggplot(data = mkt, 
+       aes(x = sports_fandom, y = parenting, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")
+```
+
+Although these clusters are not particularly distinct in the scatterplot below, it shows that health_nutrition and personal_fitness are highly correlated. This is an example of how some of the variables tracking subject matter measure very similar things.
+```{r echo = FALSE}
+# large portion of their market is focused on health/nutrition and personal fitness
+ggplot(data = mkt, 
+       aes(x = health_nutrition, y = personal_fitness, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")
+```
+
+Sports fanaticism and religion are also highly correlated. This is a potential market segment.
+```{r echo=FALSE}
+# sports fanaticism and religion correlated
+ggplot(data = mkt,
+       aes(x = sports_fandom, y = religion, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")
+```
+
+Religion and food are also highly correlated. Perhaps having a holiday special and featuring food in promotions would stimulate increased demand for NutrientH2O products.
+```{r echo = FALSE}
+# religion and food seem highly correlated, can have holiday specials or something
+ggplot(data = mkt, 
+       aes(x =religion, y = food, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")
+```
+
+```{r echo = FALSE}
+# food and politics are not correlated, don't try to tackle both
+# ggplot(data = mkt, 
+#        aes(x = politics, y = food, color = factor(clust2$cluster))) +
+#   geom_point(position = "jitter")
+```
+
+Here, food and parenting also seem to be highly correlated.
+```{r echo=FALSE}
+# food and parenting seem to be pretty correlated, they cluster together
+# can target with ads
+ggplot(data = mkt,
+       aes(x = food, y = parenting, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")
+```
+
+However, targeting these parents with pictures of food or visual ads in general would not necessarily be an effective strategy. 
+```{r echo = FALSE}
+# but parents aren't necessarily attracted to photos, don't need to target through visual ads for example
+ggplot(data = mkt, 
+       aes(x =parenting, y = photo_sharing, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")
+```
+
+
+
