@@ -22,7 +22,6 @@ This data set includes 11 feature variables, a color factor variable (red and wh
 ```{r echo=FALSE, message=FALSE}
 #remove the categorical variables and scale
 wine_s <- as.data.frame(scale(wine[,1:11]))
-set.seed(343)
 
 # EDA-----
 ggplot(wine, aes(quality, fill=color))+
@@ -76,13 +75,14 @@ fviz_pca_var(winepca, col.var="contrib",
 winepca.df <- data.frame(winepca$rotation[, 1:4])
 kable(winepca.df) %>%
   kable_styling()
+```
 
+```{r echo=FALSE}
 wine2 <- cbind(wine, winepca$x)
-ggplot(wine2, aes(x=PC1, y=PC2, col = color, fill = color)) +
-  geom_point(alpha=0.5) +
-  ggtitle("Red and White Wines on a Biplot")
 
-
+ggplot(wine2, aes(x=PC1, y=PC2, color=color)) +
+  geom_point(alpha=0.3) +
+  labs(title="Red and White Wines on a Biplot for PC1 and PC2")
 ```
 
 PC1 and PC2 show a large cluster that has two smaller, distinct clusters. However, there is not much separation between the two. Unfortunately, PC1 and PC2 collectively make up only half of the variation, so we are limited in our ability to reduce the number of features.
@@ -92,7 +92,7 @@ PC1 and PC2 show a large cluster that has two smaller, distinct clusters. Howeve
 
 To determine the optimal number of clusters, we will look at an elbow plot, which plots the total within sum of squares. This measures the "compactness" of the clusters.
 
-```{r echo=FALSE, message=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 fviz_nbclust(wine_s, kmeans, method="wss")
 gap_stat <- clusGap(wine_s, FUN = kmeans, nstart = 25,
                     K.max = 10, B = 30)

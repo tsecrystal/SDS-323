@@ -247,7 +247,7 @@ alcohol
 </tr>
 </tbody>
 </table>
-![](wine_pca_files/figure-markdown_strict/unnamed-chunk-3-2.png)
+![](wine_pca_files/figure-markdown_strict/unnamed-chunk-4-1.png)
 
 PC1 and PC2 show a large cluster that has two smaller, distinct
 clusters. However, there is not much separation between the two.
@@ -262,112 +262,12 @@ To determine the optimal number of clusters, we will look at an elbow
 plot, which plots the total within sum of squares. This measures the
 “compactness” of the clusters.
 
-![](wine_pca_files/figure-markdown_strict/unnamed-chunk-4-1.png)
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: did not converge in 10 iterations
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-    ## Warning: Quick-TRANSfer stage steps exceeded maximum (= 324850)
-
-![](wine_pca_files/figure-markdown_strict/unnamed-chunk-4-2.png)
+![](wine_pca_files/figure-markdown_strict/unnamed-chunk-5-1.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-5-2.png)
 
 There is no clear bend in the plot, but it looks like 4 clusters is the
 best choice. We also use the gap statistic, which suggests 5 clusters.
 
-![](wine_pca_files/figure-markdown_strict/unnamed-chunk-5-1.png)
+![](wine_pca_files/figure-markdown_strict/unnamed-chunk-6-1.png)
 
 At 2 clusters, red and white wines are distinguished quite clearly on
 the biplot despite the two being close together. As we can see, although
@@ -379,7 +279,7 @@ subgroups and the white wines are split into 3 subgroups.
 
 ### Quality
 
-![](wine_pca_files/figure-markdown_strict/unnamed-chunk-6-1.png)
+![](wine_pca_files/figure-markdown_strict/unnamed-chunk-7-1.png)
 
     ##        Quality
     ## Cluster          3          4          5          6          7          8
@@ -396,7 +296,7 @@ subgroups and the white wines are split into 3 subgroups.
     ##       4 0.00000000
     ##       5 0.80000000
 
-![](wine_pca_files/figure-markdown_strict/unnamed-chunk-6-2.png)
+![](wine_pca_files/figure-markdown_strict/unnamed-chunk-7-2.png)
 
 Unfortunately, neither PCA nor K-Means is effective at differentiating
 quality; there are too many wines with middle scores. As we can see by
@@ -408,7 +308,7 @@ of one category. There is too much mediocrity in this dataset for
 k-means to be effective in judging quality. Therefore, k-means is not
 the best approach for finding wines of good quality.
 
-![](wine_pca_files/figure-markdown_strict/unnamed-chunk-7-1.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-7-2.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-7-3.png)
+![](wine_pca_files/figure-markdown_strict/unnamed-chunk-8-1.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-8-2.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-8-3.png)
 
 Here, we remove the mediocre wines and look only at wines that are bad
 (quality &lt; 5) or great (quality &gt; 7). Although the distinction is
