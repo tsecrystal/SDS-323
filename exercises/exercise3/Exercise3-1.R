@@ -17,7 +17,7 @@ greenb <- greenb %>%
 greenb <- greenb %>% 
   mutate(green_certification = ifelse(green_t > 0, "1", "0"))
 
-  
+greenb <- select(greenb, -LEED,-Energystar, -green_t ) 
 #Forward selection
 lm0 = lm(Rent ~ 1, data = greenb)
 lm_forward = step(lm0, direction = 'forward',
@@ -57,7 +57,7 @@ sqrt(sum(coef(ridge_mod)[-1,50]^2))
 
 
 
-predict(ridge_mod, s = 50, type = "coefficients")[1:20,]
+predict(ridge_mod, s = 50, type = "coefficients")[1:22,]
 
 
 #Estimate the test error of ridge regression and the lasso.
@@ -88,7 +88,8 @@ ridge_mod = glmnet(x_train, y_train, alpha=0, lambda = grid, thresh = 1e-12)
 ridge_pred = predict(ridge_mod, s = 4, newx = x_test)
 mean((ridge_pred - y_test)^2)
 #The test MSE is 88.67
-mean((mean(y_train) - y_test)^2)# Get MSE
+MSE = mean((mean(y_train) - y_test)^2)
+print(MSE)# Get MSE
 #Because we had instead simply fit a model with just an intercept,  we would have predicted each test observation using the mean of the training observations. 
 #The test MSE is 217.90
 
@@ -105,22 +106,51 @@ bestlam
 
 #  Draw plot of training MSE as a function of lambda
 plot(cv.out)
-
 #the test MSE associated with this value of  λ
 ridge_pred = predict(ridge_mod, s = bestlam, newx = x_test)
 mean((ridge_pred - y_test)^2)
 # The test MSE is 85.18
 
+# Compute R^2 from true and predicted values
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  
+  RMSE = sqrt(SSE/nrow(df))
+  
+  
+  # Model performance metrics
+  data.frame(
+    RMSE = RMSE
+   
+  )
+  
+}
+
+# Prediction and evaluation on train data
+#predictions_train <- predict(ridge_mod, s = bestlam, newx = x)
+#eval_results(y_train, predictions_train, train)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(ridge_mod, s = bestlam, newx = x_test)
+eval_results(y_test, predictions_test, test)
+
+
+
 
 # Fit ridge regression model on full dataset
 out = glmnet(x, y, alpha = 0) 
 # Display coefficients using lambda chosen by CV
-predict(out, type = "coefficients", s = bestlam)[1:20,] 
+predict(out, type = "coefficients", s = bestlam)[1:21,] 
 
 
 #### none of the coefficients are exactly zero - ridge regression does not perform variable selection!
 
-#The Lasso
+
+
+
+
+#The Lasso###############
 lasso_mod = glmnet(x_train, 
                    y_train, 
                    alpha = 1, 
@@ -136,8 +166,13 @@ plot(cv.out)
 # Select lamda that minimizes training MSE
 bestlam = cv.out$lambda.min
 bestlam
+
+
+
+#The optimal lambda value comes out to be 0.001 and will be used to build the ridge regression model.
 # Use best lambda to predict test data
-lasso_pred = predict(lasso_mod, s = bestlam, newx = x_test) 
+lasso_pred = predict(lasso_mod, s = bestlam, newx = x_test)
+eval_results(y_test, lasso_pred, test)
 # Calculate test MSE
 mean((lasso_pred - y_test)^2) 
 # The test MSE is 85.30
@@ -146,8 +181,10 @@ mean((lasso_pred - y_test)^2)
 # Fit lasso model on full dataset
 out = glmnet(x, y, alpha = 1, lambda = grid)
 # Display coefficients using lambda chosen by CV
-lasso_coef = predict(out, type = "coefficients", s = bestlam)[1:20,] 
+lasso_coef = predict(out, type = "coefficients", s = bestlam)[1:21,] 
 lasso_coef
+
 # Display only non-zero coefficients
 lasso_coef[lasso_coef != 0] 
+
 
