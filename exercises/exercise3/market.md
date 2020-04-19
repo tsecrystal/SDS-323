@@ -2,7 +2,7 @@ Market Segmentation
 ===================
 
 To analyze the potential market for NutrientH2O, a sample of followers’
-tweets over a seven-day period were analyzed and placed into 36 broad
+tweets over a seven-day period was analyzed and placed into 36 broad
 categories for subject matter. This service was performed by contracted
 workers of Amazon’s Mechanical Turk service: human annotators that are
 prone to error and subjectivity. Some categories included were politics,
@@ -74,8 +74,13 @@ K-Means Clustering Attempt
 Instead, K-means clustering might generate more interpretable and
 concise results.
 
-After determining the Gap statistic, the optimal K, or number of
-clusters, is shown to be about 3.
+![](market_files/figure-markdown_strict/unnamed-chunk-4-1.png)![](market_files/figure-markdown_strict/unnamed-chunk-4-2.png)
+
+Although the Gap statistic indicates that the best number of clusters is
+supposedly 1, the value for k after which there is a dip in the
+calculated Gap statistic, this is not a clear solution. The Gap
+statistic values are all close to each other. In this case, the most
+intuitive number of clusters is 3 clusters.
 
 Below are the top 5 categories for each cluster, or group of individuals
 that are closest together in their tweets across all the 37 different
@@ -298,16 +303,22 @@ subject matter measure very similar things.
 
 ![](market_files/figure-markdown_strict/unnamed-chunk-11-1.png)
 
-Sports fanaticism and religion are also highly correlated. This is a
-potential market segment.
+Sports fanaticism and religion are also highly correlated. However, in
+promotions, it might be wise to target sports more than religion, as it
+seems there is a greater concentration along the sports axis than the
+religion axis for individuals that are not strongly into both topics.
 
 ![](market_files/figure-markdown_strict/unnamed-chunk-12-1.png)
 
-Religion and food are also highly correlated. Perhaps having a holiday
-special and featuring food in promotions would stimulate increased
-demand for NutrientH2O products.
+Religion and food are also highly correlated. There appears to be a main
+cluster of people that are both religious and into food; however, in
+promotions, it would be wise to err on the side of featuring food
+because there seems to be a greater concentration along the food axis in
+a secondary cluster.
 
 ![](market_files/figure-markdown_strict/unnamed-chunk-13-1.png)
+
+![](market_files/figure-markdown_strict/unnamed-chunk-14-1.png)
 
 Here, food and parenting also seem to be highly correlated.
 
@@ -317,3 +328,24 @@ However, targeting these parents with pictures of food or visual ads in
 general would not necessarily be an effective strategy.
 
 ![](market_files/figure-markdown_strict/unnamed-chunk-16-1.png)
+
+Conclusion
+----------
+
+Overall, clustering was determined to be a more intuitive method than
+PCA for determining market segments. The different groups were easier to
+visualize, versus PCA which condensed the data into 15 different
+principal components that separated out the overall audience into too
+many subcategories.
+
+NutrientH2O’s Twitter followers can be broken into 3 clusters. One
+cluster seems to be relatively inactive, suggesting disengagement and an
+audience that is not easily targeted because of a lack of engagement and
+demonstrated preferences. The other two clusters show more apparent
+trends.
+
+Food, parenting, religion, and sports are all shown to be key interests
+of NutrientH2O’s active follower base. However, certain strategies may
+not be as effective in targeting these audiences. For instance, parents
+are not keen on photo-sharing and may not be as receptive to solely
+visual advertisements.
