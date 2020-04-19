@@ -1,3 +1,26 @@
+Market Segmentation
+===================
+
+To analyze the potential market for NutrientH2O, a sample of followers’
+tweets over a seven-day period were analyzed and placed into 36 broad
+categories for subject matter. This service was performed by contracted
+workers of Amazon’s Mechanical Turk service: human annotators that are
+prone to error and subjectivity. Some categories included were politics,
+food, and school. However, there were also categories such as spam and
+adult, whose observations were cut out of the data to focus on the most
+pertinent individuals. But certain ambiguities still remain, such as
+miscellaneous categories such as “chatter” and “uncategorized,” which
+leads to even more noise in the data.
+
+PCA Attempt
+-----------
+
+Principal component analysis (PCA) seems like it would be a good method
+to analyze potential markets, since it is adept at handling noisy data
+and can accommodate ambiguity, like tweets that lie in multiple
+categories, unlike clusters, which strictly group individual points into
+sections.
+
 From the below summary, it appears as though 15 principal components are
 necessary to explain about 75% of the variation in the data. This
 indicates that the data is not easily summarized; the subject matter
@@ -29,13 +52,14 @@ principal components than necessary.
     ## Proportion of Variance 0.00996 0.00974 0.00866 0.00664 0.00644 0.00545 0.00507
     ## Cumulative Proportion  0.95799 0.96773 0.97640 0.98304 0.98948 0.99493 1.00000
 
-The scree plot below shows that PCA is not a good method for summarizing
-the data. The “elbow” in this plot that shows the dropping-off point, or
-diminishing marginal utility, of adding more principal components seems
-to be after only one principal component. In reality, this is not
-reasonable since this component only explains 13% of the variation in
-the data. Fifteen principal components are needed to explain 75% of the
-data, but this makes market segmentation more confusing and convoluted.
+The scree plot below confirms that PCA is not a good method for
+summarizing the data. The “elbow” in this plot that shows the
+dropping-off point, or diminishing marginal utility, of adding more
+principal components seems to be after only one principal component. In
+reality, this is not reasonable since this component only explains 13%
+of the variation in the data. Fifteen principal components are needed to
+explain 75% of the data, but this makes market segmentation more
+confusing and convoluted.
 
 There are too many principal components needed to explain the variation
 in the data. Each principal component pulls apart a market segment, and
@@ -43,6 +67,9 @@ in doing so, takes us away from the big picture audience and plunges us
 too much in the messy details.
 
 ![](market_files/figure-markdown_strict/unnamed-chunk-3-1.png)
+
+K-Means Clustering Attempt
+--------------------------
 
 Instead, K-means clustering might generate more interpretable and
 concise results.
@@ -256,6 +283,9 @@ Another cluster shows that many followers of Nutrient H2O are devoted to
 sports, religion, food, and parenting. This suggests that targeting
 parents during certain sports seasons may be effective, for example.
 
+A Graphical Analysis with Clusters
+----------------------------------
+
 Below are some plots that demonstrate the different market segments in
 NutrientH2O’s followers, focusing on variables that had a strong showing
 in the 3 clusters.
@@ -268,26 +298,32 @@ is not recommended.
 However, sports fanaticism and parenting seem to be highly correlated.
 It is worth investigating parents that are into sports as a potential
 market segment.
+
 ![](market_files/figure-markdown_strict/unnamed-chunk-10-1.png)
 
 Although these clusters are not particularly distinct in the scatterplot
 below, it shows that health\_nutrition and personal\_fitness are highly
 correlated. This is an example of how some of the variables tracking
 subject matter measure very similar things.
+
 ![](market_files/figure-markdown_strict/unnamed-chunk-11-1.png)
 
 Sports fanaticism and religion are also highly correlated. This is a
 potential market segment.
+
 ![](market_files/figure-markdown_strict/unnamed-chunk-12-1.png)
 
 Religion and food are also highly correlated. Perhaps having a holiday
 special and featuring food in promotions would stimulate increased
 demand for NutrientH2O products.
+
 ![](market_files/figure-markdown_strict/unnamed-chunk-13-1.png)
 
 Here, food and parenting also seem to be highly correlated.
+
 ![](market_files/figure-markdown_strict/unnamed-chunk-15-1.png)
 
 However, targeting these parents with pictures of food or visual ads in
 general would not necessarily be an effective strategy.
+
 ![](market_files/figure-markdown_strict/unnamed-chunk-16-1.png)
