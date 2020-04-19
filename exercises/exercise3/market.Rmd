@@ -1,7 +1,7 @@
 ---
 title: "market"
 author: "Crystal Tse"
-date: "4/12/2020"
+date: "4/20/2020"
 output: md_document
 always_allow_html: true
 ---
@@ -21,6 +21,13 @@ library(kableExtra)
 library(cluster)
 library(factoextra)
 ```
+
+# Market Segmentation
+
+To analyze the potential market for NutrientH2O, a sample of followers' tweets over a seven-day period were analyzed and placed into 36 broad categories for subject matter. This service was performed by contracted workers of Amazon's Mechanical Turk service: human annotators that are prone to error and subjectivity. Some categories included were politics, food, and school. However, there were also categories such as spam and adult, whose observations were cut out of the data to focus on the most pertinent individuals. But certain ambiguities still remain, such as miscellaneous categories such as "chatter" and "uncategorized," which leads to even more noise in the data.
+
+## PCA Attempt
+Principal component analysis (PCA) seems like it would be a good method to analyze potential markets, since it is adept at handling noisy data and can accommodate ambiguity, like tweets that lie in multiple categories, unlike clusters, which strictly group individual points into sections.
 
 ```{r echo=FALSE}
 mkt = read.csv("social_marketing.csv")
@@ -52,7 +59,7 @@ summary(PCAtweet)
 
 ```
 
-The scree plot below shows that PCA is not a good method for summarizing the data. The "elbow" in this plot that shows the dropping-off point, or diminishing marginal utility, of adding more principal components seems to be after only one principal component. In reality, this is not reasonable since this component only explains 13% of the variation in the data. Fifteen principal components are needed to explain 75% of the data, but this makes market segmentation more confusing and convoluted.
+The scree plot below confirms that PCA is not a good method for summarizing the data. The "elbow" in this plot that shows the dropping-off point, or diminishing marginal utility, of adding more principal components seems to be after only one principal component. In reality, this is not reasonable since this component only explains 13% of the variation in the data. Fifteen principal components are needed to explain 75% of the data, but this makes market segmentation more confusing and convoluted.
 
 There are too many principal components needed to explain the variation in the data. Each principal component pulls apart a market segment, and in doing so, takes us away from the big picture audience and plunges us too much in the messy details.
 
@@ -61,7 +68,9 @@ fviz_screeplot(PCAtweet, addlabels=TRUE)
 
 ```
 
+## K-Means Clustering Attempt
 Instead, K-means clustering might generate more interpretable and concise results.
+
 ```{r echo = FALSE}
 # try K-means++ clustering
 
@@ -107,6 +116,8 @@ However, the other two clusters present clearer trends. One of these clusters re
 
 Another cluster shows that many followers of Nutrient H2O are devoted to sports, religion, food, and parenting. This suggests that targeting parents during certain sports seasons may be effective, for example.
 
+## A Graphical Analysis with Clusters
+
 Below are some plots that demonstrate the different market segments in NutrientH2O's followers, focusing on variables that had a strong showing in the 3 clusters.
 
 The plot below shows that photo sharing and sports fanaticism are not strongly correlated, so targeting the intersection of those two groups is not recommended.
@@ -118,6 +129,7 @@ ggplot(data = mkt,
 ```
 
 However, sports fanaticism and parenting seem to be highly correlated. It is worth investigating parents that are into sports as a potential market segment.
+
 ```{r echo=FALSE}
 ggplot(data = mkt, 
        aes(x = sports_fandom, y = parenting, color = factor(clust2$cluster))) +
@@ -125,6 +137,7 @@ ggplot(data = mkt,
 ```
 
 Although these clusters are not particularly distinct in the scatterplot below, it shows that health_nutrition and personal_fitness are highly correlated. This is an example of how some of the variables tracking subject matter measure very similar things.
+
 ```{r echo = FALSE}
 # large portion of their market is focused on health/nutrition and personal fitness
 ggplot(data = mkt, 
@@ -133,6 +146,7 @@ ggplot(data = mkt,
 ```
 
 Sports fanaticism and religion are also highly correlated. This is a potential market segment.
+
 ```{r echo=FALSE}
 # sports fanaticism and religion correlated
 ggplot(data = mkt,
@@ -141,6 +155,7 @@ ggplot(data = mkt,
 ```
 
 Religion and food are also highly correlated. Perhaps having a holiday special and featuring food in promotions would stimulate increased demand for NutrientH2O products.
+
 ```{r echo = FALSE}
 # religion and food seem highly correlated, can have holiday specials or something
 ggplot(data = mkt, 
@@ -156,6 +171,7 @@ ggplot(data = mkt,
 ```
 
 Here, food and parenting also seem to be highly correlated.
+
 ```{r echo=FALSE}
 # food and parenting seem to be pretty correlated, they cluster together
 # can target with ads
@@ -164,7 +180,8 @@ ggplot(data = mkt,
   geom_point(position = "jitter")
 ```
 
-However, targeting these parents with pictures of food or visual ads in general would not necessarily be an effective strategy. 
+However, targeting these parents with pictures of food or visual ads in general would not necessarily be an effective strategy.
+
 ```{r echo = FALSE}
 # but parents aren't necessarily attracted to photos, don't need to target through visual ads for example
 ggplot(data = mkt, 
