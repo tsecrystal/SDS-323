@@ -1,143 +1,70 @@
-    ## Loading required package: dplyr
+From the below summary, it appears as though 15 principal components are
+necessary to explain about 75% of the variation in the data. This
+indicates that the data is not easily summarized; the subject matter
+variables are not differentiated enough to generate principal components
+that explain a large percentage of the variation in the data. For
+example, food, health\_nutrition, and cooking could all be overlapping
+but lead to small fluctuations that lead to overfitting and more
+principal components than necessary.
 
-    ## 
-    ## Attaching package: 'dplyr'
+    ## Importance of components:
+    ##                           PC1     PC2     PC3    PC4    PC5     PC6     PC7
+    ## Standard deviation     2.1135 1.70202 1.60142 1.5416 1.4861 1.37498 1.28453
+    ## Proportion of Variance 0.1276 0.08277 0.07327 0.0679 0.0631 0.05402 0.04714
+    ## Cumulative Proportion  0.1276 0.21039 0.28366 0.3516 0.4147 0.46868 0.51583
+    ##                           PC8     PC9    PC10    PC11    PC12    PC13    PC14
+    ## Standard deviation     1.1951 1.07171 1.01558 0.99812 0.96691 0.95924 0.93983
+    ## Proportion of Variance 0.0408 0.03282 0.02947 0.02846 0.02671 0.02629 0.02524
+    ## Cumulative Proportion  0.5566 0.58945 0.61891 0.64738 0.67409 0.70038 0.72562
+    ##                           PC15    PC16    PC17    PC18    PC19    PC20   PC21
+    ## Standard deviation     0.93139 0.91864 0.89841 0.84763 0.80711 0.74792 0.6950
+    ## Proportion of Variance 0.02479 0.02411 0.02306 0.02053 0.01861 0.01598 0.0138
+    ## Cumulative Proportion  0.75040 0.77451 0.79757 0.81810 0.83671 0.85270 0.8665
+    ##                           PC22    PC23    PC24    PC25    PC26    PC27    PC28
+    ## Standard deviation     0.68505 0.65212 0.64893 0.63601 0.63141 0.61441 0.59779
+    ## Proportion of Variance 0.01341 0.01215 0.01203 0.01156 0.01139 0.01079 0.01021
+    ## Cumulative Proportion  0.87990 0.89205 0.90409 0.91564 0.92703 0.93782 0.94803
+    ##                           PC29    PC30    PC31    PC32    PC33    PC34    PC35
+    ## Standard deviation     0.59049 0.58391 0.55070 0.48212 0.47489 0.43661 0.42125
+    ## Proportion of Variance 0.00996 0.00974 0.00866 0.00664 0.00644 0.00545 0.00507
+    ## Cumulative Proportion  0.95799 0.96773 0.97640 0.98304 0.98948 0.99493 1.00000
 
-    ## The following objects are masked from 'package:stats':
-    ## 
-    ##     filter, lag
+The scree plot below shows that PCA is not a good method for summarizing
+the data. The “elbow” in this plot that shows the dropping-off point, or
+diminishing marginal utility, of adding more principal components seems
+to be after only one principal component. In reality, this is not
+reasonable since this component only explains 13% of the variation in
+the data. Fifteen principal components are needed to explain 75% of the
+data, but this makes market segmentation more confusing and convoluted.
 
-    ## The following objects are masked from 'package:base':
-    ## 
-    ##     intersect, setdiff, setequal, union
-
-    ## Loading required package: lattice
-
-    ## Loading required package: ggformula
-
-    ## Loading required package: ggplot2
-
-    ## Loading required package: ggstance
-
-    ## 
-    ## Attaching package: 'ggstance'
-
-    ## The following objects are masked from 'package:ggplot2':
-    ## 
-    ##     geom_errorbarh, GeomErrorbarh
-
-    ## 
-    ## New to ggformula?  Try the tutorials: 
-    ##  learnr::run_tutorial("introduction", package = "ggformula")
-    ##  learnr::run_tutorial("refining", package = "ggformula")
-
-    ## Loading required package: mosaicData
-
-    ## Loading required package: Matrix
-
-    ## Registered S3 method overwritten by 'mosaic':
-    ##   method                           from   
-    ##   fortify.SpatialPolygonsDataFrame ggplot2
-
-    ## 
-    ## The 'mosaic' package masks several functions from core packages in order to add 
-    ## additional features.  The original behavior of these functions should not be affected by this.
-    ## 
-    ## Note: If you use the Matrix package, be sure to load it BEFORE loading mosaic.
-
-    ## 
-    ## Attaching package: 'mosaic'
-
-    ## The following object is masked from 'package:Matrix':
-    ## 
-    ##     mean
-
-    ## The following object is masked from 'package:ggplot2':
-    ## 
-    ##     stat
-
-    ## The following objects are masked from 'package:dplyr':
-    ## 
-    ##     count, do, tally
-
-    ## The following objects are masked from 'package:stats':
-    ## 
-    ##     binom.test, cor, cor.test, cov, fivenum, IQR, median, prop.test,
-    ##     quantile, sd, t.test, var
-
-    ## The following objects are masked from 'package:base':
-    ## 
-    ##     max, mean, min, prod, range, sample, sum
-
-    ## -- Attaching packages ------------------------------------- tidyverse 1.3.0 --
-
-    ## v tibble  2.1.3     v purrr   0.3.3
-    ## v tidyr   1.0.0     v stringr 1.4.0
-    ## v readr   1.3.1     v forcats 0.4.0
-
-    ## -- Conflicts ---------------------------------------- tidyverse_conflicts() --
-    ## x mosaic::count()            masks dplyr::count()
-    ## x purrr::cross()             masks mosaic::cross()
-    ## x mosaic::do()               masks dplyr::do()
-    ## x tidyr::expand()            masks Matrix::expand()
-    ## x dplyr::filter()            masks stats::filter()
-    ## x ggstance::geom_errorbarh() masks ggplot2::geom_errorbarh()
-    ## x dplyr::lag()               masks stats::lag()
-    ## x tidyr::pack()              masks Matrix::pack()
-    ## x mosaic::stat()             masks ggplot2::stat()
-    ## x mosaic::tally()            masks dplyr::tally()
-    ## x tidyr::unpack()            masks Matrix::unpack()
-
-    ## Warning: package 'LICORS' was built under R version 3.6.3
-
-    ## Warning: package 'foreach' was built under R version 3.6.3
-
-    ## 
-    ## Attaching package: 'foreach'
-
-    ## The following objects are masked from 'package:purrr':
-    ## 
-    ##     accumulate, when
-
-    ## 
-    ## Attaching package: 'reshape2'
-
-    ## The following object is masked from 'package:tidyr':
-    ## 
-    ##     smiths
-
-    ## 
-    ## Attaching package: 'kableExtra'
-
-    ## The following object is masked from 'package:dplyr':
-    ## 
-    ##     group_rows
-
-    ##    1    2    3    4    5 
-    ##  417 6525  489  420   31
+There are too many principal components needed to explain the variation
+in the data. Each principal component pulls apart a market segment, and
+in doing so, takes us away from the big picture audience and plunges us
+too much in the messy details.
 
 ![](market_files/figure-markdown_strict/unnamed-chunk-3-1.png)
 
-![](market_files/figure-markdown_strict/unnamed-chunk-4-1.png)
+Instead, K-means clustering might generate more interpretable and
+concise results.
 
-Below are some plots that demonstrate the different market segments in
-NutrientH2O’s followers.
-![](market_files/figure-markdown_strict/unnamed-chunk-5-1.png)![](market_files/figure-markdown_strict/unnamed-chunk-5-2.png)![](market_files/figure-markdown_strict/unnamed-chunk-5-3.png)
+After determining the Gap statistic, the optimal K, or number of
+clusters, is shown to be about 3.
 
 Below are the top 5 categories for each cluster, or group of individuals
 that are closest together in their tweets across all the 37 different
 topics that were measured. Although “chatter” appears for all 3
-clusters, it is not a very significant measure that can be targeted.
-However, it is a gauge of how relatively active each cluster is, and was
-therefore kept in these charts.
+clusters, it is not a very significant measure that can be targeted
+since it is somewhat of a “miscellaneous” category and is fraught with
+noise. However, it is a gauge of how relatively active each cluster is,
+and was therefore kept in these charts.
 
 The value “X” shown is the number of standard deviations above the
 average each cluster tweets about a certain topic.
 
-    ##          chatter health_nutrition    photo_sharing          cooking 
-    ##         6.317147         4.844208         4.720789         4.434497 
-    ##         politics 
-    ##         3.044006
+    ##          chatter    photo_sharing health_nutrition         politics 
+    ##         3.619297         1.881685         1.662737         1.354289 
+    ##   current_events 
+    ##         1.351670
 
 <table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;">
 <caption>
@@ -158,15 +85,7 @@ x
 chatter
 </td>
 <td style="text-align:right;">
-6.317147
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-health\_nutrition
-</td>
-<td style="text-align:right;">
-4.844208
+3.619297
 </td>
 </tr>
 <tr>
@@ -174,15 +93,15 @@ health\_nutrition
 photo\_sharing
 </td>
 <td style="text-align:right;">
-4.720789
+1.881685
 </td>
 </tr>
 <tr>
 <td style="text-align:left;">
-cooking
+health\_nutrition
 </td>
 <td style="text-align:right;">
-4.434497
+1.662737
 </td>
 </tr>
 <tr>
@@ -190,16 +109,24 @@ cooking
 politics
 </td>
 <td style="text-align:right;">
-3.044006
+1.354289
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+current\_events
+</td>
+<td style="text-align:right;">
+1.351670
 </td>
 </tr>
 </tbody>
 </table>
 
-    ##          chatter    photo_sharing health_nutrition   current_events 
-    ##         3.616900         1.878940         1.661996         1.350482 
+    ##          chatter health_nutrition    photo_sharing          cooking 
+    ##         6.330107         4.865003         4.734590         4.451859 
     ##         politics 
-    ##         1.340193
+    ##         3.021905
 
 <table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;">
 <caption>
@@ -220,15 +147,7 @@ x
 chatter
 </td>
 <td style="text-align:right;">
-3.616900
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-photo\_sharing
-</td>
-<td style="text-align:right;">
-1.878940
+6.330107
 </td>
 </tr>
 <tr>
@@ -236,15 +155,23 @@ photo\_sharing
 health\_nutrition
 </td>
 <td style="text-align:right;">
-1.661997
+4.865003
 </td>
 </tr>
 <tr>
 <td style="text-align:left;">
-current\_events
+photo\_sharing
 </td>
 <td style="text-align:right;">
-1.350482
+4.734590
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+cooking
+</td>
+<td style="text-align:right;">
+4.451859
 </td>
 </tr>
 <tr>
@@ -252,7 +179,7 @@ current\_events
 politics
 </td>
 <td style="text-align:right;">
-1.340193
+3.021905
 </td>
 </tr>
 </tbody>
@@ -276,7 +203,7 @@ x
 sports\_fandom
 </td>
 <td style="text-align:right;">
-5.866492
+5.864052
 </td>
 </tr>
 <tr>
@@ -284,7 +211,7 @@ sports\_fandom
 religion
 </td>
 <td style="text-align:right;">
-5.232984
+5.231372
 </td>
 </tr>
 <tr>
@@ -292,7 +219,7 @@ religion
 food
 </td>
 <td style="text-align:right;">
-4.519634
+4.516340
 </td>
 </tr>
 <tr>
@@ -300,7 +227,7 @@ food
 chatter
 </td>
 <td style="text-align:right;">
-4.069372
+4.070588
 </td>
 </tr>
 <tr>
@@ -308,7 +235,7 @@ chatter
 parenting
 </td>
 <td style="text-align:right;">
-4.011780
+4.006536
 </td>
 </tr>
 </tbody>
@@ -328,3 +255,39 @@ aspects of NutrientH2O products would be highly effective.
 Another cluster shows that many followers of Nutrient H2O are devoted to
 sports, religion, food, and parenting. This suggests that targeting
 parents during certain sports seasons may be effective, for example.
+
+Below are some plots that demonstrate the different market segments in
+NutrientH2O’s followers, focusing on variables that had a strong showing
+in the 3 clusters.
+
+The plot below shows that photo sharing and sports fanaticism are not
+strongly correlated, so targeting the intersection of those two groups
+is not recommended.
+![](market_files/figure-markdown_strict/unnamed-chunk-9-1.png)
+
+However, sports fanaticism and parenting seem to be highly correlated.
+It is worth investigating parents that are into sports as a potential
+market segment.
+![](market_files/figure-markdown_strict/unnamed-chunk-10-1.png)
+
+Although these clusters are not particularly distinct in the scatterplot
+below, it shows that health\_nutrition and personal\_fitness are highly
+correlated. This is an example of how some of the variables tracking
+subject matter measure very similar things.
+![](market_files/figure-markdown_strict/unnamed-chunk-11-1.png)
+
+Sports fanaticism and religion are also highly correlated. This is a
+potential market segment.
+![](market_files/figure-markdown_strict/unnamed-chunk-12-1.png)
+
+Religion and food are also highly correlated. Perhaps having a holiday
+special and featuring food in promotions would stimulate increased
+demand for NutrientH2O products.
+![](market_files/figure-markdown_strict/unnamed-chunk-13-1.png)
+
+Here, food and parenting also seem to be highly correlated.
+![](market_files/figure-markdown_strict/unnamed-chunk-15-1.png)
+
+However, targeting these parents with pictures of food or visual ads in
+general would not necessarily be an effective strategy.
+![](market_files/figure-markdown_strict/unnamed-chunk-16-1.png)
