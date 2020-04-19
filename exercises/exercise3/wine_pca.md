@@ -265,7 +265,7 @@ plot, which plots the total within sum of squares. This measures the
 
 ![](wine_pca_files/figure-markdown_strict/unnamed-chunk-5-1.png)![](wine_pca_files/figure-markdown_strict/unnamed-chunk-5-2.png)
 
-There is no clear bend in the plot, but it looks like 4 clusters is the
+There is no clear bend in the plot, but it looks like 3 clusters is the
 best choice. We also use the gap statistic, which suggests 5 clusters.
 
 ![](wine_pca_files/figure-markdown_strict/unnamed-chunk-6-1.png)
