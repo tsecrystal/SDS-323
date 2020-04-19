@@ -82,6 +82,7 @@ Instead, K-means clustering might generate more interpretable and concise result
 ```
 
 After determining the Gap statistic, the optimal K, or number of clusters, is shown to be about 3.
+
 ```{r echo = FALSE}
 
 # Run k-means plus plus.
@@ -98,11 +99,11 @@ The value "X" shown is the number of standard deviations above the average each 
 
 ```{r echo = FALSE}
 # show the variables that are above 4 or the top 5 variables that describe each cluster
-print(c1[order(c1, decreasing = TRUE)][1:5])%>% kable(caption = "Cluster 1") %>%  kable_styling(bootstrap_options = "striped", full_width = F)
+(c1[order(c1, decreasing = TRUE)][1:5])%>% kable(caption = "Cluster 1") %>%  kable_styling(bootstrap_options = "striped", full_width = F)
 ```
 
 ```{r echo = FALSE}
-print(c2[order(c2, decreasing = TRUE)][1:5])%>% kable(caption = "Cluster 2") %>% kable_styling(bootstrap_options = "striped", full_width = F)
+(c2[order(c2, decreasing = TRUE)][1:5])%>% kable(caption = "Cluster 2") %>% kable_styling(bootstrap_options = "striped", full_width = F)
 ```
 
 ```{r echo = FALSE}
@@ -121,6 +122,7 @@ Another cluster shows that many followers of Nutrient H2O are devoted to sports,
 Below are some plots that demonstrate the different market segments in NutrientH2O's followers, focusing on variables that had a strong showing in the 3 clusters.
 
 The plot below shows that photo sharing and sports fanaticism are not strongly correlated, so targeting the intersection of those two groups is not recommended.
+
 ```{r echo = FALSE}
 # A few plots with cluster membership shown
 ggplot(data = mkt,
