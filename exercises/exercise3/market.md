@@ -112,7 +112,7 @@ x
 chatter
 </td>
 <td style="text-align:right;">
-3.619297
+3.616900
 </td>
 </tr>
 <tr>
@@ -120,7 +120,7 @@ chatter
 photo\_sharing
 </td>
 <td style="text-align:right;">
-1.881685
+1.878940
 </td>
 </tr>
 <tr>
@@ -128,15 +128,7 @@ photo\_sharing
 health\_nutrition
 </td>
 <td style="text-align:right;">
-1.662737
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-politics
-</td>
-<td style="text-align:right;">
-1.354289
+1.661997
 </td>
 </tr>
 <tr>
@@ -144,7 +136,15 @@ politics
 current\_events
 </td>
 <td style="text-align:right;">
-1.351670
+1.350482
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+politics
+</td>
+<td style="text-align:right;">
+1.340193
 </td>
 </tr>
 </tbody>
@@ -168,7 +168,7 @@ x
 chatter
 </td>
 <td style="text-align:right;">
-6.330107
+6.317147
 </td>
 </tr>
 <tr>
@@ -176,7 +176,7 @@ chatter
 health\_nutrition
 </td>
 <td style="text-align:right;">
-4.865003
+4.844208
 </td>
 </tr>
 <tr>
@@ -184,7 +184,7 @@ health\_nutrition
 photo\_sharing
 </td>
 <td style="text-align:right;">
-4.734590
+4.720789
 </td>
 </tr>
 <tr>
@@ -192,7 +192,7 @@ photo\_sharing
 cooking
 </td>
 <td style="text-align:right;">
-4.451859
+4.434497
 </td>
 </tr>
 <tr>
@@ -200,7 +200,7 @@ cooking
 politics
 </td>
 <td style="text-align:right;">
-3.021905
+3.044006
 </td>
 </tr>
 </tbody>
@@ -224,7 +224,7 @@ x
 sports\_fandom
 </td>
 <td style="text-align:right;">
-5.864052
+5.866492
 </td>
 </tr>
 <tr>
@@ -232,7 +232,7 @@ sports\_fandom
 religion
 </td>
 <td style="text-align:right;">
-5.231372
+5.232984
 </td>
 </tr>
 <tr>
@@ -240,7 +240,7 @@ religion
 food
 </td>
 <td style="text-align:right;">
-4.516340
+4.519634
 </td>
 </tr>
 <tr>
@@ -248,7 +248,7 @@ food
 chatter
 </td>
 <td style="text-align:right;">
-4.070588
+4.069372
 </td>
 </tr>
 <tr>
@@ -256,7 +256,7 @@ chatter
 parenting
 </td>
 <td style="text-align:right;">
-4.006536
+4.011780
 </td>
 </tr>
 </tbody>
