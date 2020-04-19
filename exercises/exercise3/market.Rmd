@@ -20,11 +20,13 @@ library(knitr)
 library(kableExtra)
 library(cluster)
 library(factoextra)
+library(lattice)
+library(gridExtra)
 ```
 
 # Market Segmentation
 
-To analyze the potential market for NutrientH2O, a sample of followers' tweets over a seven-day period were analyzed and placed into 36 broad categories for subject matter. This service was performed by contracted workers of Amazon's Mechanical Turk service: human annotators that are prone to error and subjectivity. Some categories included were politics, food, and school. However, there were also categories such as spam and adult, whose observations were cut out of the data to focus on the most pertinent individuals. But certain ambiguities still remain, such as miscellaneous categories such as "chatter" and "uncategorized," which leads to even more noise in the data.
+To analyze the potential market for NutrientH2O, a sample of followers' tweets over a seven-day period was analyzed and placed into 36 broad categories for subject matter. This service was performed by contracted workers of Amazon's Mechanical Turk service: human annotators that are prone to error and subjectivity. Some categories included were politics, food, and school. However, there were also categories such as spam and adult, whose observations were cut out of the data to focus on the most pertinent individuals. But certain ambiguities still remain, such as miscellaneous categories such as "chatter" and "uncategorized," which leads to even more noise in the data.
 
 ## PCA Attempt
 Principal component analysis (PCA) seems like it would be a good method to analyze potential markets, since it is adept at handling noisy data and can accommodate ambiguity, like tweets that lie in multiple categories, unlike clusters, which strictly group individual points into sections.
@@ -75,13 +77,14 @@ Instead, K-means clustering might generate more interpretable and concise result
 # try K-means++ clustering
 
 # choose the optimal K
-# fviz_nbclust(mkt, kmeans, method="wss")
-# gap_stat <- clusGap(mkt, FUN = kmeans, nstart = 25,
-#                     K.max = 10, B = 50)
-# fviz_gap_stat(gap_stat)
+fviz_nbclust(mkt, kmeans, method="wss")
+gap_stat <- clusGap(mkt, FUN = kmeans, nstart = 25,
+                    K.max = 10, B = 50)
+fviz_gap_stat(gap_stat)
 ```
 
-After determining the Gap statistic, the optimal K, or number of clusters, is shown to be about 3.
+Although the Gap statistic indicates that the best number of clusters is supposedly 1, the value for k after which there is a dip in the calculated Gap statistic, this is not a clear solution. The Gap statistic values are all close to each other. In this case, the most intuitive number of clusters is 3 clusters.
+
 
 ```{r echo = FALSE}
 
@@ -125,51 +128,69 @@ The plot below shows that photo sharing and sports fanaticism are not strongly c
 
 ```{r echo = FALSE}
 # A few plots with cluster membership shown
-ggplot(data = mkt,
+# sports_photos = 
+  ggplot(data = mkt,
        aes(x = sports_fandom, y = photo_sharing, color = factor(clust2$cluster))) +
-  geom_point(position = "jitter")
+  geom_point(position = "jitter")+
+  ggtitle("Sports and Photo-sharing Are Not Correlated")+
+  labs(color = "Cluster")
 ```
 
 However, sports fanaticism and parenting seem to be highly correlated. It is worth investigating parents that are into sports as a potential market segment.
 
 ```{r echo=FALSE}
-ggplot(data = mkt, 
+# sports_parents =
+  ggplot(data = mkt, 
        aes(x = sports_fandom, y = parenting, color = factor(clust2$cluster))) +
-  geom_point(position = "jitter")
+  geom_point(position = "jitter")+
+  ggtitle("Sports and Parenting are Highly Correlated")+
+  labs(color = "Cluster")
 ```
 
 Although these clusters are not particularly distinct in the scatterplot below, it shows that health_nutrition and personal_fitness are highly correlated. This is an example of how some of the variables tracking subject matter measure very similar things.
 
 ```{r echo = FALSE}
 # large portion of their market is focused on health/nutrition and personal fitness
-ggplot(data = mkt, 
+# health_fitness =
+  ggplot(data = mkt, 
        aes(x = health_nutrition, y = personal_fitness, color = factor(clust2$cluster))) +
-  geom_point(position = "jitter")
+  geom_point(position = "jitter")+
+  ggtitle("Health/Nutrition and Personal Fitness are Highly Correlated")+
+  labs(color = "Cluster")
 ```
 
-Sports fanaticism and religion are also highly correlated. This is a potential market segment.
+Sports fanaticism and religion are also highly correlated. However, in promotions, it might be wise to target sports more than religion, as it seems there is a greater concentration along the sports axis than the religion axis for individuals that are not strongly into both topics.
 
 ```{r echo=FALSE}
 # sports fanaticism and religion correlated
-ggplot(data = mkt,
+# sports_religion = 
+  ggplot(data = mkt,
        aes(x = sports_fandom, y = religion, color = factor(clust2$cluster))) +
-  geom_point(position = "jitter")
+  geom_point(position = "jitter")+
+  ggtitle("Sports and Religion are Highly Correlated")+
+  labs(color = "Cluster")
 ```
 
-Religion and food are also highly correlated. Perhaps having a holiday special and featuring food in promotions would stimulate increased demand for NutrientH2O products.
+Religion and food are also highly correlated. There appears to be a main cluster of people that are both religious and into food; however, in promotions, it would be wise to err on the side of featuring food because there seems to be a greater concentration along the food axis in a secondary cluster.
 
 ```{r echo = FALSE}
 # religion and food seem highly correlated, can have holiday specials or something
-ggplot(data = mkt, 
+# religion_food = 
+  ggplot(data = mkt, 
        aes(x =religion, y = food, color = factor(clust2$cluster))) +
-  geom_point(position = "jitter")
+  geom_point(position = "jitter")+
+  ggtitle("Religion and Food are Highly Correlated")+
+  labs(color = "Cluster")
 ```
 
 ```{r echo = FALSE}
 # food and politics are not correlated, don't try to tackle both
-# ggplot(data = mkt, 
-#        aes(x = politics, y = food, color = factor(clust2$cluster))) +
-#   geom_point(position = "jitter")
+# food_polit = 
+  ggplot(data = mkt,
+       aes(x = politics, y = food, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")+
+  ggtitle("Politics and Food are Not Correlated")+
+  labs(color = "Cluster")
 ```
 
 Here, food and parenting also seem to be highly correlated.
@@ -177,19 +198,32 @@ Here, food and parenting also seem to be highly correlated.
 ```{r echo=FALSE}
 # food and parenting seem to be pretty correlated, they cluster together
 # can target with ads
-ggplot(data = mkt,
+# food_parent = 
+  ggplot(data = mkt,
        aes(x = food, y = parenting, color = factor(clust2$cluster))) +
-  geom_point(position = "jitter")
+  geom_point(position = "jitter") +
+  ggtitle("Food and Parenting are Highly Correlated")+
+  labs(color = "Cluster")
 ```
 
 However, targeting these parents with pictures of food or visual ads in general would not necessarily be an effective strategy.
 
 ```{r echo = FALSE}
 # but parents aren't necessarily attracted to photos, don't need to target through visual ads for example
-ggplot(data = mkt, 
+# parent_photo = 
+  ggplot(data = mkt, 
        aes(x =parenting, y = photo_sharing, color = factor(clust2$cluster))) +
-  geom_point(position = "jitter")
+  geom_point(position = "jitter")+
+  ggtitle("Parenting and Photo-Sharing are Not Correlated")+
+  labs(color = "Cluster")
 ```
 
 
+## Conclusion
+
+Overall, clustering was determined to be a more intuitive method than PCA for determining market segments. The different groups were easier to visualize, versus PCA which condensed the data into 15 different principal components that separated out the overall audience into too many subcategories.
+
+NutrientH2O's Twitter followers can be broken into 3 clusters. One cluster seems to be relatively inactive, suggesting disengagement and an audience that is not easily targeted because of a lack of engagement and demonstrated preferences. The other two clusters show more apparent trends. 
+
+Food, parenting, religion, and sports are all shown to be key interests of NutrientH2O's active follower base. However, certain strategies may not be as effective in targeting these audiences. For instance, parents are not keen on photo-sharing and may not be as receptive to solely visual advertisements.
 
