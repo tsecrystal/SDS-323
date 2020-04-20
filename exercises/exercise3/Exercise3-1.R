@@ -22,6 +22,8 @@ greenb <- greenb %>%
   mutate(green_certified = ifelse(green_t > 0, "1", "0"))
 
 greenb <- select(greenb, -LEED,-Energystar, -green_t) 
+# Linear Regression
+
 # We collapse LEED and EnergyStar certifications into a new dummy variable that encompasses all "green certified" buildings.  Forward selection is used to select the predictive variables that add significant variability to the statistical model. 
 
 lm0 = lm(Rent ~ 1, data = greenb)
@@ -30,10 +32,12 @@ lm_forward = step(lm0, direction = 'forward',
 summary(lm_forward)
 
 
-#There are 43 variables chosen by the forward selection technique. However, this linear model contains too many coefficients and interactions and leads to an overfitting of the model. 
+#There are 28 variables chosen by the forward selection technique. The large number of coefficients makes the model less interpretable, especially since several of the variables have a coefficient value near zero. 
 getCall(lm_forward)
 coef(lm_forward)
 length(coef(lm_forward))
+
+# Regularization
 
 # Aside from linear regression, we fit a model containing all p predictors using ridge regression and the lasso that constrains or regularizes the coefficient estimates. First, we fit a ridge regression model on the training set with lambda chosen by cross-validation and report the test error obtained.
 greenb = na.omit(greenb)
@@ -91,7 +95,7 @@ print(MSE)
 # We created a model for ridge regression using training set with gamma chosen by cross-validation.
 set.seed(1)
 cv.out = cv.glmnet(x_train, y_train, alpha = 0) 
-# We select lamda that minimizes training MSE
+# We select the penalty parameter lambda that minimizes the training set MSE.
 bestlam = cv.out$lambda.min  
 bestlam
 #The value of  ?? that results in the smallest cross-validation error is 1.16
@@ -149,21 +153,21 @@ cv.out = cv.glmnet(x_train, y_train, alpha = 1)
 plot(cv.out,
      sub = "Figure 3")
 
-# When lamda is 0.017, we get the minimizes training MSE
+# When lambda is 0.017, we minimize the training MSE.
 bestlam = cv.out$lambda.min
 bestlam
 
-# And then, we use best lambda to predict test data
+# And then, we use this best lambda to predict the test data.
 lasso_pred = predict(lasso_mod, s = bestlam, newx = x_test)
 eval_results(y_test, lasso_pred, test)
-# We got the testRMSE = 9.24
+# We got test RMSE = 9.24.
 
 mean((lasso_pred - y_test)^2) 
 # The test MSE is 85.30
 
 
 out = glmnet(x, y, alpha = 1, lambda = grid)
-# Display coefficients using lambda chosen by cross-validation
+# Displayed below are the coefficients using lambda chosen by cross-validation.
 lasso_coef = predict(out, type = "coefficients", s = bestlam)[1:21,] 
 lasso_coef
 
@@ -178,6 +182,6 @@ lasso_coef[lasso_coef != 0]
 #Ridge Regression Model: Test set RMSE of 9.28
 #Lasso Regression Model: Test set RMSE of 9.24
 
-#The regularized regression models are performing better than the linear regression model. Overall, all the models are performing well with stable RMSE values.
+#The regularized regression models perform better than the linear regression model. Overall, all the models are performing well with stable RMSE values.
 
-# Holding other features of the building constant, the rental income per square foot will increase 0.293 when the building change from non green certificate to green certificate.
+# Holding other features of the building constant, the rental income per square foot will increase by 0.293 dollars when the building becomes green-certified.
