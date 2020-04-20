@@ -1,0 +1,656 @@
+---
+title: "Exercise3"
+author: "Kyle Carter, Crystal Tse, Jinfang Yan"
+date: "4/20/2020"
+output: md_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(ISLR)
+library(glmnet)
+library(doMC)  
+library(gamlr)
+library(tidyr)
+library(dplyr)
+greenb = read.csv("data/greenbuildings.csv")
+
+
+packs <- c("tidyverse","tidyr","corrplot","factoextra","cluster","dendextend","kableExtra","ggcorrplot","mosaic","psych","gridExtra","LICORS")
+lapply(packs, library, character.only = TRUE)
+wine <- read.csv("data/wine.csv")
+
+
+library(ggplot2)
+library(foreach)
+library(reshape2)
+library(knitr)
+library(kableExtra)
+library(cluster)
+library(factoextra)
+library(lattice)
+library(gridExtra)
+mkt = read.csv("data/social_marketing.csv")
+
+```
+
+
+## Problem 1: Green Buildings
+
+Given a large dataset on characteristics of commercial rental properties within the United States, our goal is to build the best predictive model possible for the price. Some of the characteristics included in the dataset include the building's age, number of stories, electricity costs, and average rent within the geographic region. 
+
+In addition, we also want to use this model to quantify the average change in rental income per square foot associated with buildings that have green certification. 
+
+
+We collapse LEED and EnergyStar certifications into a new dummy variable that encompasses all "green certified" buildings.
+
+Forward selection is used to select the predictive variables that add significant variability to the statistical model. 
+
+```{r echo=FALSE}
+
+greenb <- select(greenb, -CS_PropertyID)
+greenb <- greenb %>% 
+  mutate(green_t = LEED + Energystar )
+
+greenb <- greenb %>% 
+  mutate(green_certified = ifelse(green_t > 0, "1", "0"))
+
+greenb <- select(greenb, -LEED,-Energystar, -green_t) 
+lm0 = lm(Rent ~ 1, data = greenb)
+lm_forward = step(lm0, direction = 'forward',
+                  scope =~(cluster + size + empl_gr + stories + age + renovated + class_a + class_b + green_certified + green_rating+ net +amenities + cd_total_07 +  hd_total07 + total_dd_07 + Precipitation + Gas_Costs + Electricity_Costs + cluster_rent )^2)
+summary(lm_forward)
+```
+
+There are 28 variables chosen by the forward selection technique. However, this linear model contains too many coefficients and interactions and leads to an overfitting of the model. 
+```{r echo=FALSE}
+getCall(lm_forward)
+coef(lm_forward)
+length(coef(lm_forward))
+```
+
+
+Aside from linear regression, we fit a model containing all p predictors using ridge regression and the lasso that constrains or regularizes the coefficient estimates. First, we fit a ridge regression model on the training set with lambda chosen by cross-validation and report the test error obtained.
+
+
+```{r echo=FALSE}
+greenb = na.omit(greenb)
+x =  model.matrix(Rent~., greenb)[,-1] 
+
+y = greenb %>% 
+  select(Rent) %>% 
+  unlist() %>% 
+  as.numeric()
+
+grid = 10^seq(10, -2, length = 100)
+ridge_mod = glmnet(x, y, alpha = 0, lambda = grid)
+```
+
+Associated with each value of lambda is a vector of ridge regression coefficients, stored in a matrix that can be accessed.  
+```{r echo=FALSE}
+dim(coef(ridge_mod))
+plot(ridge_mod, 
+     sub = "Figure 1")
+
+predict(ridge_mod, s = 50, type = "coefficients")[1:21,]
+```
+
+Split the samples into a training set and a test set in order to estimate the test error of ridge regression and the lasso.
+
+```{r echo=FALSE}
+set.seed(1)
+train = greenb %>%
+  sample_frac(0.5)
+
+test = greenb %>%
+  setdiff(train)
+
+x_train = model.matrix(Rent~., train)[,-1]
+x_test = model.matrix(Rent~., test)[,-1]
+
+y_train = train %>%
+  select(Rent) %>%
+  unlist() %>%
+  as.numeric()
+
+y_test = test %>%
+  select(Rent) %>%
+  unlist() %>%
+  as.numeric()
+```
+
+
+Next we fit a ridge regression model on the training set, and evaluate its MSE on the test set.
+```{r echo=FALSE}
+ridge_mod = glmnet(x_train, y_train, alpha=0, lambda = grid, thresh = 1e-12)
+ridge_pred = predict(ridge_mod, s = 4, newx = x_test)
+mean((ridge_pred - y_test)^2)
+MSE = mean((mean(y_train) - y_test)^2)
+print(MSE)
+```
+The test MSE is 85.16
+Because we had instead simply fit a model with just an intercept, we would have predicted each test observation using the mean of the training observations. The final test MSE is 217.90
+
+
+We created a model for ridge regression using training set with gamma chosen by cross-validation. We select lamda that minimizes training MSE
+```{r echo=FALSE}
+
+set.seed(1)
+cv.out = cv.glmnet(x_train, y_train, alpha = 0) 
+bestlam = cv.out$lambda.min  
+bestlam
+```
+
+The value of lambda that results in the smallest cross-validation error is 1.16
+# Below is a plot of the relationship between training MSE and a function of lambda. The MSE increases as lambda increases.
+```{r echo=FALSE}
+plot(cv.out,
+     sub = "Figure 2")
+```
+
+The test MSE associated with this value of lambda is shown below.
+```{r echo=FALSE}
+ridge_pred = predict(ridge_mod, s = bestlam, newx = x_test)
+mean((ridge_pred - y_test)^2)
+```
+The test MSE is 85.16
+
+We compute RMSE from true and predicted values
+```{r echo=FALSE}
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  
+  RMSE = sqrt(SSE/nrow(df))
+  
+  data.frame(
+    RMSE = RMSE
+    
+  )
+  
+}
+
+predictions_train <- predict(ridge_mod, s = bestlam, newx = x)
+eval_results(y_train, predictions_train, train)
+
+predictions_test <- predict(ridge_mod, s = bestlam, newx = x_test)
+eval_results(y_test, predictions_test, test)
+```
+Prediction and evaluation on train data and test data. We got the RMSE = 27.13 for the training data. We got the RMSE = 9.23 for the test data.
+
+We fit ridge regression model on full dataset and display coefficients using lambda chosen by Cross-validation
+```{r echo=FALSE}
+out = glmnet(x, y, alpha = 0) 
+predict(out, type = "coefficients", s = bestlam)[1:21,] 
+```
+
+Because none of the coefficients are exactly zero - ridge regression does not perform variable selection! 
+
+LASSO is a penalized regression method that improves OLS and Ridge regression. LASSO does shrinkage and variable selection simultaneously for better prediction and model interpretation. Therefore, we decide to create a model for lasso regression using training set with gamma chosen by cross-validation.
+
+```{r echo=FALSE}
+lasso_mod = glmnet(x_train, 
+                   y_train, 
+                   alpha = 1, 
+                   lambda = grid) 
+
+
+
+set.seed(1)
+```
+
+Fitting model to the test set and checking accuracy.
+```{r echo=FALSE}
+cv.out = cv.glmnet(x_train, y_train, alpha = 1) 
+bestlam = cv.out$lambda.min
+bestlam
+plot(cv.out,
+     sub = "Figure 3")
+```
+The plot shows the relationship between training MSE and a function of lambda. When lamda is 0.014, we get the minimizes training MSE. 
+
+And then, we use best lambda to predict test data
+```{r echo=FALSE} 
+lasso_pred = predict(lasso_mod, s = bestlam, newx = x_test)
+eval_results(y_test, lasso_pred, test)
+mean((lasso_pred - y_test)^2) 
+out = glmnet(x, y, alpha = 1, lambda = grid)
+```
+We got the test RMSE = 9.24. The test MSE is 85.32
+
+Display coefficients using lambda chosen by cross-validation.
+```{r echo=FALSE} 
+out = glmnet(x, y, alpha = 1, lambda = grid)
+lasso_coef = predict(out, type = "coefficients", s = bestlam)[1:21,] 
+lasso_coef
+lasso_coef[lasso_coef != 0]
+```
+Selecting only the predictors with non-zero coefficients, we see that the lasso model with lambda.
+
+
+Conclusion:
+
+The performance of the models is summarized below:
+
+Ridge Regression Model: Test set RMSE of 9.23
+Lasso Regression Model: Test set RMSE of 9.23
+
+The regularized regression models are performing better than the linear regression model. Overall, all the models are performing well with stable RMSE values.
+
+Holding other features of the building constant, the rental income per square foot will increase 0.293 when the building change from non green certificate to green certificate.      
+           
+
+# Problem 2: What Causes What?
+
+1. Why can’t I just get data from a few different cities and run the regression of “Crime” on “Police” to understand how more cops in the streets affect crime? (“Crime” refers to some measure of crime rate and “Police” measures the number of cops in a city.)
+
+Clearly, cities with a lot of crime will want to hire more police, and police departments may hire more officers if they anticipate an increase in crime. The fact that the crime rate and number of officers on the police force are correlated means that we cannot simply run a regression to find the effect of police on crime. 
+
+  Numerous other factors may influence the crime rate on a given day other than the number of police officers. Just because there are lots of police on a given day, that does not mean that police caused the crime rate to change. For instance, if a lot of people are out on vacation, crime rates could skyrocket, but the number of police on the street could be the same as usual.
+
+  Thus, the fluctuations of crime cannot solely be attributed to the amount of police on a given day. To understand the influence of police on crime, you need to control for the other factors that may also influence crime. These could range from the day of week (people may be more likely to be robbed during working hours), time of year (people may be robbed if they're out of town for the holidays), how affluent a city is (the less affluent, the more criminal activity is native to the area), and more. 
+
+2. How were the researchers from UPenn able to isolate this effect? Briefly describe their approach and discuss their result in the “Table 2” below, from the researchers' paper.
+  
+  The researchers from UPenn wanted to generate a situation where there were a lot of police on the street for reasons unrelated to crime. The way they accomplished this was by using data from "high-alert days." These alerts, which included various scales of alarm, such as red and orange, were part of a terrorism alert system employed in Washington D.C. as it was a likely target for terrorist attacks. There were additional police stationed in public spaces such as malls in case of a terrorism incident; the increase in police forces stationed was not due to street crime. In this way, they were able to capture police's impact on crime.
+  
+  They found that when more police were on the street for reasons unrelated to street crime, the crime rate decreased, showing that police were effective at deterring criminal activity.
+  
+  The first column of Table 2 shows a very simple regression with daily D.C. crime rates against a dummy variable for the terror alert level (where 1 indicates high alert). The second column adds an additional control for the log of ridership on the Metro, or public transportation. Public transportation ridership is a proxy for tourism. This variable is added to the model to help control for the number of tourists, because tourism may decrease if a terror alert is issued; criminals target tourists.
+  
+  The coefficient on the alert level is statistically significant at the 5 percent level, and shows that on high alert days, total crimes decrease by an average of seven crimes per day, or about 6.6 percent. For a 10 percent increase in Metro ridership, the number of crimes increases by an average of 1.7 per day. This has a relatively small effect on crime, even though the variable is highly significant (p-value < 0.01).
+  
+3. Why did they have to control for Metro ridership? What was that trying to capture?
+
+As stated above, public transportation (Metro) ridership is a proxy for tourism. This variable is added to the model to help control for the number of tourists, because tourism may decrease if a terror alert is issued. If there are more tourists out and about, this will tend to impact the crime rate since there are more potential targets for criminals.
+
+4. Concentrate the first column of Table 4. Can you describe the model being estimated here? What is the conclusion?
+
+The first column runs a regression with interaction variables on the high alert and district 1, as compared to the interaction of high alert and other districts. This indicates that the terror alert might affect crime in District 1 (the National Mall) differently than the other districts in Washington D.C. The model also includes a variable that controls for metro ridership as a proxy for tourism, which is significant at the 10% level. 
+
+The table indicates that on high alert days, the number of crimes in district 1 decreases by about 2.62, holding all else fixed. This is significant at the 1% level, meaning that crime in district 1 is indeed affected uniquely by the terror alert system. 
+
+The other districts are estimated to have 0.57 fewer crimes on average, holding all other variables fixed; however, this coefficient is not significant. The variable log(metro ridership) is significant at the 10% level but has a very small magnitude: a 10% increase in metro ridership, a proxy for a 10% increase in the number of tourists, only tends to increase the number of crimes by 0.247.
+
+In conclusion, the number of police is shown to drastically reduce the crime rate, but this effect is concentrated in District 1, or the National Mall. On high alert days, where there are lots of police on the streets for reasons unrelated to crime, the number of crimes committed in District 1 decreases by 2.62, holding all else fixed. This indicates that expanding the police force is effective in deterring crime, although police departments may need to strategically deploy police officers to certain regions, as the main impact was shown in District 1, but not the other districts.
+
+
+
+# Problem 3: Wine
+
+This data set includes 11 feature variables, a color factor variable (red and white), and a scale from 1-10 of wine quality.
+
+```{r echo=FALSE, message=FALSE}
+set.seed(343)
+#remove the categorical variables and scale
+wine_s <- as.data.frame(scale(wine[,1:11]))
+
+# EDA-----
+ggplot(wine, aes(quality, fill=color))+
+  geom_histogram(binwidth = 0.5, col="black") +  
+  facet_grid(color ~ .)+
+  labs(title="Quality For Red and White Wines")
+
+wine %>% 
+  gather(Attributes, value, 1:11) %>%
+  ggplot(aes(x=value, fill=Attributes)) +
+  geom_histogram(colour="black", show.legend=FALSE) +
+  facet_wrap(~Attributes, scales="free_x") +
+  labs(x="Values", y="Frequency",
+       title="Wine Attributes Histograms") +
+  theme_bw()
+
+cormat <- round(cor(wine_s), 2)
+ggcorrplot(cormat, hc.order = TRUE, type = "lower", outline.color = "white") + ggtitle("Variable Correlation Plot")
+
+ggplot(wine, aes(x=factor(quality), y=alcohol)) +
+  geom_boxplot() +
+  theme_bw() +
+  labs(title="Alcohol and Quality are Postively Correlated", x="Quality", y="Alcohol Content (%)")
+
+```
+
+It appears that the red wines tend to be of lower quality than the white wines, and there are more white wines in the data set than red wines. The variables residual.sugar and chlorides have the most positive skew, however most of the variables are skewed, with pH and citric.acid the only variables that resemble a normal distribution. Some of the variables are correlated with each other, such as free.sulfur.dioxide and total.sulfur.dioxide, and some are negatively correlated, such as density and alcohol. There is a positive relationship between alcohol and quality. This dataset could benefit from PCA in a factor analysis context to reduce the number of factors and make the results more interpretable.
+
+## PCA
+
+``` {r echo=FALSE}
+winepca <- prcomp(wine[, 1:11], scale=TRUE)
+fviz_screeplot(winepca, addlabels=TRUE) + geom_vline(xintercept=4, linetype=5, col="red")
+
+principal(wine_s, nfactors = 4, rotate="none") %>% 
+  fa.diagram(sort = TRUE, errors = TRUE)
+```
+
+
+Looking at the scree plot, which plots the fraction of the total variance in the data against the principal components. We can see that there is no clear elbow but 4 components will suffice as it looks like there is a bend at that point. These 4 components explain about 73% of the variance. The biplot below shows that total.sulfur.dioxide and free.sulfur.dioxide are correlated in PC1 and density makes the largest contribution to PC2; density and acohol are inversely correlated. In PC3, pH loads highly, and citric.acid is inversely correlated. For PC4, the sulphates variable is large and negative; high values for sulphates will be negatively correlated with this component. The component diagram gives a big picture of the 4 components. The items vary in how much they load (or correlate) with each component, but it is important to keep in mind that the variables are also correlated with other components.
+
+
+```{r echo=FALSE}
+#biplot
+fviz_pca_var(winepca, col.var="contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE) + 
+  theme_minimal() + 
+  ggtitle("Variables - PCA")
+#take top 4 principal components by using the elbow method for scree plot, rotate
+winepca.df <- data.frame(winepca$rotation[, 1:4])
+kable(winepca.df) %>%
+  kable_styling()
+```
+
+```{r echo=FALSE}
+wine2 <- cbind(wine, winepca$x)
+
+ggplot(wine2, aes(x=PC1, y=PC2, color=color)) +
+  geom_point(alpha=0.3) +
+  labs(title="Red and White Wines on a Biplot for PC1 and PC2")
+```
+
+PC1 and PC2 show a large cluster that has two smaller, distinct clusters. However, there is not much separation between the two. Unfortunately, PC1 and PC2 collectively make up only half of the variation, so we are limited in our ability to reduce the number of features.
+
+
+## K-Means Clustering
+
+To determine the optimal number of clusters, we will look at an elbow plot, which plots the total within sum of squares. This measures the "compactness" of the clusters.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+fviz_nbclust(wine_s, kmeans, method="wss")
+gap_stat <- clusGap(wine_s, FUN = kmeans, nstart = 25,
+                    K.max = 10, B = 30)
+fviz_gap_stat(gap_stat)
+
+```
+
+There is no clear bend in the plot, but it looks like 4 clusters is the best choice. We also use the gap statistic, which suggests 5 clusters.
+
+```{r echo=FALSE}
+kfinal <- kmeanspp(wine_s, 5, nstart=25)
+p5 <- fviz_cluster(kfinal, data=wine_s, geom = "point") + ggtitle("5 Clusters")
+k3 <-kmeanspp(wine_s, 3, nstart=50)
+p3 <-fviz_cluster(k3, data=wine_s, geom = "point") + ggtitle("3 Clusters")
+k4 <-kmeanspp(wine_s, 4, nstart=50)
+p4 <-fviz_cluster(k4, data=wine_s, geom = "point") + ggtitle("4 Clusters")
+k2 <-kmeanspp(wine_s, 2, nstart=50)
+p2 <- fviz_cluster(k2, data=wine_s, geom = "point") + ggtitle("2 Clusters")
+library(gridExtra)
+# Subplot
+grid.arrange(p2, p3, p4, p5, ncol=2)
+
+```
+
+At 2 clusters, red and white wines are distinguished quite clearly on the biplot despite the two being close together. As we can see, although the distinction is kept between red and white, there is little to be gained by using more than 2 clusters. However, since this biplot uses PC1 and PC2 as its axes, there is likely more nuance that we are not seeing. With 5 clusters, it seems that the red wines are split into two subgroups and the white wines are split into 3 subgroups.
+
+
+
+### Quality
+```{r echo=FALSE}
+wine2 <- wine %>%
+  mutate(category=cut(quality, breaks=c(-Inf, 4, 6, Inf), labels=c("bad","mediocre", "good")))
+wine2 <- cbind(wine2, cluster = kfinal$cluster)
+
+ggplot(as.data.frame(winepca$x), aes(x=PC1, y=PC2, color=wine2$category)) + 
+  geom_point(alpha=0.5) + theme_bw() + 
+  ggtitle("Biplot with Wine Category") + 
+  labs(x="Principal Component 1", y="Principal Component 2", color="Category")
+
+
+#kmeans cluster results
+prop.table(table(Cluster=wine2$cluster, Quality=wine2$quality), 2)
+wine_s2=wine_s
+wine_s2$cluster <- kfinal$cluster
+wine_s2$quality <- wine2$quality
+ggplot(wine_s2, aes(x= quality,  group=as.factor(cluster))) + 
+  geom_bar(aes(y = ..prop.., fill = factor(..x..)), stat="count") +
+  geom_text(aes( label = scales::percent(..prop..),
+                 y= ..prop.. ), stat= "count", vjust = -.5) +
+  labs(y = "Percent", fill="Quality") +
+  facet_grid(~as.factor(cluster))
+
+```
+
+Unfortunately, neither PCA nor K-Means is effective at differentiating quality; there are too many wines with middle scores. As we can see by the faceted plots, which shows a plot of each cluster and the percentage of the quality, each cluster has a similar percentage of bad and good wines. If k-means were able to discern quality, then the composition of the clusters would be different, ideally with clusters comprised mostly of one category.
+There is too much mediocrity in this dataset for k-means to be effective in judging quality. Therefore, k-means is not the best approach for finding wines of good quality.
+
+
+
+```{r echo=FALSE}
+#too much gradient in quality, take only the bad and good wines;
+winegb <- wine %>% 
+  mutate(category=cut(quality, breaks=c(-Inf, 4, 7, Inf), labels=c("bad","mediocre", "good"))) %>% 
+  filter(category=="bad"| category=="good")
+
+winegb_s <- as.data.frame(scale(winegb[,1:11]))
+fviz_nbclust(winegb_s, kmeans, method="wss")
+gbk <- kmeanspp(winegb_s, 3)
+fviz_cluster(gbk, data=winegb_s)
+winegb_s2 <- winegb_s
+winegb_s2$cluster <- gbk$cluster
+winegb_s2$quality <- winegb$quality
+winegb_s2$category <- winegb$category
+
+
+ggplot(winegb_s2, aes(x= quality,  group=as.factor(cluster))) + 
+  geom_bar(aes(y = ..prop.., fill = factor(..x..)), stat="count") +
+  geom_text(aes( label = scales::percent(..prop..),
+                 y= ..prop.. ), stat= "count", vjust = -.5) +
+  labs(title="Quality Composition of Each Cluster", y = "Percent", fill="Quality") +
+  facet_grid(~as.factor(cluster))
+
+```
+
+Here, we remove the mediocre wines and look only at wines that are bad (quality < 5) or great (quality > 7). Although the distinction is still not entirely clear, k-means does a better job to distinguish good and bad wines as cluster 1 seems to be comprised almost entirely of bad wines, and cluster 3 has mostly good wines. However this is a pointless exercise since this example would rarely exist in the real world. Also, we have reduced the number of observations greatly which reduces our confidence even more.
+
+
+
+### Conclusion
+By using PCA and k-means we were able to distinguish the red and white wines to a reasonable degree, even though there is overlap between the two. For PCA, we saw that most of the variation in the wine data could be explained by 4 or 5 components. K-means was useful to see how clustering could better prepare us to divide the data.
+Although the first 2 principal components only explained half of the variation and did not make for convenient visualization, we were able to see how the factors were correlated and how the components are influenced by different variables. When it comes to quality, however, we have been unsuccessful. There are too many middle wines, and only a few terrible or excellent wines. As a result, we can only see general correlations between specific variables and quality, such as alcohol and quality; a different technique would likely be more successful.
+
+
+# Problem 4: Market Segmentation
+
+# Market Segmentation
+
+To analyze the potential market for NutrientH2O, a sample of followers' tweets over a seven-day period was analyzed and placed into 36 broad categories for subject matter. This service was performed by contracted workers of Amazon's Mechanical Turk service: human annotators that are prone to error and subjectivity. Some categories included were politics, food, and school. However, there were also categories such as spam and adult, whose observations were cut out of the data to focus on the most pertinent individuals. But certain ambiguities still remain, such as miscellaneous categories such as "chatter" and "uncategorized," which leads to even more noise in the data.
+
+## PCA Attempt
+Principal component analysis (PCA) seems like it would be a good method to analyze potential markets, since it is adept at handling noisy data and can accommodate ambiguity, like tweets that lie in multiple categories, unlike clusters, which strictly group individual points into sections.
+
+```{r echo=FALSE}
+
+mkt <- subset(mkt, !(spam > 0 | adult > 0))
+
+mkt = subset(mkt, select = -c(spam, adult) )
+# Center and scale the data
+mkt = scale(mkt[-1], center=TRUE, scale=TRUE)
+
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(mkt,"scaled:center")
+sigma = attr(mkt,"scaled:scale")
+
+mkt_long <- reshape2::melt(mkt)  # convert matrix to long dataframe
+mkt <- spread(mkt_long, Var2, value)# convert long dataframe to wide
+```
+
+From the below summary, it appears as though 15 principal components are necessary to explain about 75% of the variation in the data. This indicates that the data is not easily summarized; the subject matter variables are not differentiated enough to generate principal components that explain a large percentage of the variation in the data. For example, food, health_nutrition, and cooking could all be overlapping but lead to small fluctuations that lead to overfitting and more principal components than necessary.
+
+```{r echo = FALSE}
+# Now look at PCA of the (average) survey responses.  
+# This is a common way to treat survey data
+tweets <- mkt
+PCAtweet = prcomp(tweets, scale=TRUE)
+summary(PCAtweet)
+
+```
+
+The scree plot below confirms that PCA is not a good method for summarizing the data. The "elbow" in this plot that shows the dropping-off point, or diminishing marginal utility, of adding more principal components seems to be after only one principal component. In reality, this is not reasonable since this component only explains 13% of the variation in the data. Fifteen principal components are needed to explain 75% of the data, but this makes market segmentation more confusing and convoluted.
+
+There are too many principal components needed to explain the variation in the data. Each principal component pulls apart a market segment, and in doing so, takes us away from the big picture audience and plunges us too much in the messy details.
+
+```{r echo = FALSE}
+fviz_screeplot(PCAtweet, addlabels=TRUE)
+
+```
+
+## K-Means Clustering Attempt
+Instead, K-means clustering might generate more interpretable and concise results.
+
+```{r echo = FALSE}
+# try K-means++ clustering
+
+# choose the optimal K
+fviz_nbclust(mkt, kmeans, method="wss")
+gap_stat <- clusGap(mkt, FUN = kmeans, nstart = 25,
+                    K.max = 10, B = 50)
+fviz_gap_stat(gap_stat)
+```
+
+Although the Gap statistic indicates that the best number of clusters is supposedly 1, the value for k after which there is a dip in the calculated Gap statistic, this is not a clear solution. The Gap statistic values are all close to each other. In this case, the most intuitive number of clusters is 3 clusters.
+
+
+```{r echo = FALSE}
+
+# Run k-means plus plus.
+clust2 = kmeanspp(tweets[-1], k=3, nstart=25)  # edit with optimal_k
+
+c1 = clust2$center[1,]*sigma + mu
+c2 = clust2$center[2,]*sigma + mu
+c3 = clust2$center[3,]*sigma + mu
+```
+
+Below are the top 5 categories for each cluster, or group of individuals that are closest together in their tweets across all the 37 different topics that were measured. Although "chatter" appears for all 3 clusters, it is not a very significant measure that can be targeted since it is somewhat of a "miscellaneous" category and is fraught with noise. However, it is a gauge of how relatively active each cluster is, and was therefore kept in these charts.
+
+The value "X" shown is the number of standard deviations above the average each cluster tweets about a certain topic.
+
+```{r echo = FALSE}
+# show the variables that are above 4 or the top 5 variables that describe each cluster
+(c1[order(c1, decreasing = TRUE)][1:5])%>% kable(caption = "Cluster 1") %>%  kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+```{r echo = FALSE}
+(c2[order(c2, decreasing = TRUE)][1:5])%>% kable(caption = "Cluster 2") %>% kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+```{r echo = FALSE}
+(c3[order(c3, decreasing = TRUE)][1:5]) %>% kable(caption = "Cluster 3") %>% kable_styling( bootstrap_options = "striped", full_width = F)
+```
+
+
+It seems as though one cluster has relatively inactive members that do not skew strongly towards certain topics in their tweets; these do not present a strong demographic to market towards.
+
+However, the other two clusters present clearer trends. One of these clusters represents a group of followers that is very interested in health and nutrition, sharing photos, cooking, and politics. This suggests that expanding to a platform that showcases more photos (such as Instagram) and emphasizing the palatability and picture-worthy aspects of NutrientH2O products would be highly effective.
+
+Another cluster shows that many followers of Nutrient H2O are devoted to sports, religion, food, and parenting. This suggests that targeting parents during certain sports seasons may be effective, for example.
+
+## A Graphical Analysis with Clusters
+
+Below are some plots that demonstrate the different market segments in NutrientH2O's followers, focusing on variables that had a strong showing in the 3 clusters.
+
+The plot below shows that photo sharing and sports fanaticism are not strongly correlated, so targeting the intersection of those two groups is not recommended.
+
+```{r echo = FALSE}
+# A few plots with cluster membership shown
+# sports_photos = 
+  ggplot(data = mkt,
+       aes(x = sports_fandom, y = photo_sharing, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")+
+  ggtitle("Sports and Photo-sharing Are Not Correlated")+
+  labs(color = "Cluster")
+```
+
+However, sports fanaticism and parenting seem to be highly correlated. It is worth investigating parents that are into sports as a potential market segment.
+
+```{r echo=FALSE}
+# sports_parents =
+  ggplot(data = mkt, 
+       aes(x = sports_fandom, y = parenting, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")+
+  ggtitle("Sports and Parenting are Highly Correlated")+
+  labs(color = "Cluster")
+```
+
+Although these clusters are not particularly distinct in the scatterplot below, it shows that health_nutrition and personal_fitness are highly correlated. This is an example of how some of the variables tracking subject matter measure very similar things.
+
+```{r echo = FALSE}
+# large portion of their market is focused on health/nutrition and personal fitness
+# health_fitness =
+  ggplot(data = mkt, 
+       aes(x = health_nutrition, y = personal_fitness, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")+
+  ggtitle("Health/Nutrition and Personal Fitness are Highly Correlated")+
+  labs(color = "Cluster")
+```
+
+Sports fanaticism and religion are also highly correlated. However, in promotions, it might be wise to target sports more than religion, as it seems there is a greater concentration along the sports axis than the religion axis for individuals that are not strongly into both topics.
+
+```{r echo=FALSE}
+# sports fanaticism and religion correlated
+# sports_religion = 
+  ggplot(data = mkt,
+       aes(x = sports_fandom, y = religion, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")+
+  ggtitle("Sports and Religion are Highly Correlated")+
+  labs(color = "Cluster")
+```
+
+Religion and food are also highly correlated. There appears to be a main cluster of people that are both religious and into food; however, in promotions, it would be wise to err on the side of featuring food because there seems to be a greater concentration along the food axis in a secondary cluster.
+
+```{r echo = FALSE}
+# religion and food seem highly correlated, can have holiday specials or something
+# religion_food = 
+  ggplot(data = mkt, 
+       aes(x =religion, y = food, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")+
+  ggtitle("Religion and Food are Highly Correlated")+
+  labs(color = "Cluster")
+```
+
+Politics and food are not highly correlated, so targeting both in marketing campaigns is not advised.
+
+```{r echo = FALSE}
+# food and politics are not correlated, don't try to tackle both
+# food_polit = 
+  ggplot(data = mkt,
+       aes(x = politics, y = food, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")+
+  ggtitle("Politics and Food are Not Correlated")+
+  labs(color = "Cluster")
+```
+
+Here, food and parenting also seem to be highly correlated.
+
+```{r echo=FALSE}
+# food and parenting seem to be pretty correlated, they cluster together
+# can target with ads
+# food_parent = 
+  ggplot(data = mkt,
+       aes(x = food, y = parenting, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter") +
+  ggtitle("Food and Parenting are Highly Correlated")+
+  labs(color = "Cluster")
+```
+
+However, targeting these parents with pictures of food or visual ads in general would not necessarily be an effective strategy.
+
+```{r echo = FALSE}
+# but parents aren't necessarily attracted to photos, don't need to target through visual ads for example
+# parent_photo = 
+  ggplot(data = mkt, 
+       aes(x =parenting, y = photo_sharing, color = factor(clust2$cluster))) +
+  geom_point(position = "jitter")+
+  ggtitle("Parenting and Photo-Sharing are Not Correlated")+
+  labs(color = "Cluster")
+```
+
+
+## Conclusion
+
+Overall, clustering was determined to be a more intuitive method than PCA for determining market segments. The different groups were easier to visualize, versus PCA which condensed the data into 15 different principal components that separated out the overall audience into too many subcategories.
+
+NutrientH2O's Twitter followers can be broken into 3 clusters. One cluster seems to be relatively inactive, suggesting disengagement and an audience that is not easily targeted because of a lack of engagement and demonstrated preferences. The other two clusters show more apparent trends. 
+
+Food, parenting, religion, and sports are all shown to be key interests of NutrientH2O's active follower base. However, certain strategies may not be as effective in targeting these audiences. For instance, parents are not keen on photo-sharing and may not be as receptive to solely visual advertisements.
+
