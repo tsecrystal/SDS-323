@@ -26,7 +26,7 @@ greenb <- select(greenb, -LEED,-Energystar, -green_t)
 
 lm0 = lm(Rent ~ 1, data = greenb)
 lm_forward = step(lm0, direction = 'forward',
-                  scope =~(cluster + size + empl_gr +  leasing_rate + stories + age + renovated + class_a + class_b + green_certified + green_rating+ net +amenities + cd_total_07 +  hd_total07 + total_dd_07 + Precipitation + Gas_Costs + Electricity_Costs + cluster_rent )^2)
+                  scope =~(cluster + size + empl_gr + stories + age + renovated + class_a + class_b + green_certified + green_rating+ net +amenities + cd_total_07 +  hd_total07 + total_dd_07 + Precipitation + Gas_Costs + Electricity_Costs + cluster_rent )^2)
 summary(lm_forward)
 
 
