@@ -1,0 +1,226 @@
+---
+title: "Exercise 3"
+author: Crystal Tse, Kyle Carter, Jinfang Yan
+date: 4/20/2020
+output: md_document
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(ISLR)
+library(glmnet)
+library(doMC)  
+library(gamlr)
+library(tidyr)
+library(dplyr)
+greenb = read.csv("~/Desktop/SDS 323/Exercises/Exercise 3/data/greenbuildings.csv")
+```
+
+
+## Problem 1: Green Buildings
+
+Given a large dataset on characteristics of commercial rental properties within the United States, our goal is to build the best predictive model possible for the price. Some of the characteristics included in the dataset include the building's age, number of stories, electricity costs, and average rent within the geographic region. 
+
+In addition, we also want to use this model to quantify the average change in rental income per square foot associated with buildings that have green certification. 
+
+
+We collapse LEED and EnergyStar certifications into a new dummy variable that encompasses all "green certified" buildings.
+
+Forward selection is used to select the predictive variables that add significant variability to the statistical model. 
+
+```{r echo=FALSE}
+
+greenb <- select(greenb, -CS_PropertyID)
+greenb <- greenb %>% 
+  mutate(green_t = LEED + Energystar )
+
+greenb <- greenb %>% 
+  mutate(green_certified = ifelse(green_t > 0, "1", "0"))
+
+greenb <- select(greenb, -LEED,-Energystar, -green_t) 
+lm0 = lm(Rent ~ 1, data = greenb)
+lm_forward = step(lm0, direction = 'forward',
+                  scope =~(cluster + size + empl_gr + stories + age + renovated + class_a + class_b + green_certified + green_rating+ net +amenities + cd_total_07 +  hd_total07 + total_dd_07 + Precipitation + Gas_Costs + Electricity_Costs + cluster_rent )^2)
+summary(lm_forward)
+```
+
+There are 28 variables chosen by the forward selection technique. However, this linear model contains too many coefficients and interactions and leads to an overfitting of the model. 
+```{r echo=FALSE}
+getCall(lm_forward)
+coef(lm_forward)
+length(coef(lm_forward))
+```
+
+
+Aside from linear regression, we fit a model containing all p predictors using ridge regression and the lasso that constrains or regularizes the coefficient estimates. First, we fit a ridge regression model on the training set with lambda chosen by cross-validation and report the test error obtained.
+
+
+```{r echo=FALSE}
+greenb = na.omit(greenb)
+x =  model.matrix(Rent~., greenb)[,-1] 
+
+y = greenb %>% 
+  select(Rent) %>% 
+  unlist() %>% 
+  as.numeric()
+
+grid = 10^seq(10, -2, length = 100)
+ridge_mod = glmnet(x, y, alpha = 0, lambda = grid)
+```
+
+Associated with each value oflambdais a vector of ridge regression coefficients, stored in a matrix that can be accessed.  
+```{r echo=FALSE}
+dim(coef(ridge_mod))
+plot(ridge_mod, 
+     sub = "Figure 1")
+
+predict(ridge_mod, s = 50, type = "coefficients")[1:21,]
+```
+
+Split the samples into a training set and a test set in order to estimate the test error of ridge regression and the lasso.
+
+```{r echo=FALSE}
+set.seed(1)
+train = greenb %>%
+  sample_frac(0.5)
+
+test = greenb %>%
+  setdiff(train)
+
+x_train = model.matrix(Rent~., train)[,-1]
+x_test = model.matrix(Rent~., test)[,-1]
+
+y_train = train %>%
+  select(Rent) %>%
+  unlist() %>%
+  as.numeric()
+
+y_test = test %>%
+  select(Rent) %>%
+  unlist() %>%
+  as.numeric()
+```
+
+
+Next we fit a ridge regression model on the training set, and evaluate its MSE on the test set.
+```{r echo=FALSE}
+ridge_mod = glmnet(x_train, y_train, alpha=0, lambda = grid, thresh = 1e-12)
+ridge_pred = predict(ridge_mod, s = 4, newx = x_test)
+mean((ridge_pred - y_test)^2)
+MSE = mean((mean(y_train) - y_test)^2)
+print(MSE)
+```
+The test MSE is 85.16
+Because we had instead simply fit a model with just an intercept, we would have predicted each test observation using the mean of the training observations. The final test MSE is 217.90
+
+
+We created a model for ridge regression using training set with gamma chosen by cross-validation. We select lamda that minimizes training MSE
+```{r echo=FALSE}
+
+set.seed(1)
+cv.out = cv.glmnet(x_train, y_train, alpha = 0) 
+bestlam = cv.out$lambda.min  
+bestlam
+```
+
+The value of lambda that results in the smallest cross-validation error is 1.16
+# Below is a plot of the relationship between training MSE and a function of lambda. The MSE increases as lambda increases.
+```{r echo=FALSE}
+plot(cv.out,
+     sub = "Figure 2")
+```
+
+The test MSE associated with this value of lambda is shown below.
+```{r echo=FALSE}
+ridge_pred = predict(ridge_mod, s = bestlam, newx = x_test)
+mean((ridge_pred - y_test)^2)
+```
+The test MSE is 85.16
+
+We compute RMSE from true and predicted values
+```{r echo=FALSE}
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  
+  RMSE = sqrt(SSE/nrow(df))
+  
+  data.frame(
+    RMSE = RMSE
+    
+  )
+  
+}
+
+predictions_train <- predict(ridge_mod, s = bestlam, newx = x)
+eval_results(y_train, predictions_train, train)
+
+predictions_test <- predict(ridge_mod, s = bestlam, newx = x_test)
+eval_results(y_test, predictions_test, test)
+```
+Prediction and evaluation on train data and test data. We got the RMSE = 27.13 for the training data. We got the RMSE = 9.23 for the test data.
+
+We fit ridge regression model on full dataset and display coefficients using lambda chosen by Cross-validation
+```{r echo=FALSE}
+out = glmnet(x, y, alpha = 0) 
+predict(out, type = "coefficients", s = bestlam)[1:21,] 
+```
+
+Because none of the coefficients are exactly zero - ridge regression does not perform variable selection! 
+
+LASSO is a penalized regression method that improves OLS and Ridge regression. LASSO does shrinkage and variable selection simultaneously for better prediction and model interpretation. Therefore, we decide to create a model for lasso regression using training set with gamma chosen by cross-validation.
+
+```{r echo=FALSE}
+lasso_mod = glmnet(x_train, 
+                   y_train, 
+                   alpha = 1, 
+                   lambda = grid) 
+
+
+
+set.seed(1)
+```
+
+Fitting model to the test set and checking accuracy.
+```{r echo=FALSE}
+cv.out = cv.glmnet(x_train, y_train, alpha = 1) 
+bestlam = cv.out$lambda.min
+bestlam
+plot(cv.out,
+     sub = "Figure 3")
+```
+The plot shows the relationship between training MSE and a function of lambda. When lamda is 0.014, we get the minimizes training MSE. 
+
+And then, we use best lambda to predict test data
+```{r echo=FALSE} 
+lasso_pred = predict(lasso_mod, s = bestlam, newx = x_test)
+eval_results(y_test, lasso_pred, test)
+mean((lasso_pred - y_test)^2) 
+out = glmnet(x, y, alpha = 1, lambda = grid)
+```
+We got the test RMSE = 9.24. The test MSE is 85.32
+
+Display coefficients using lambda chosen by cross-validation.
+```{r echo=FALSE} 
+out = glmnet(x, y, alpha = 1, lambda = grid)
+lasso_coef = predict(out, type = "coefficients", s = bestlam)[1:21,] 
+lasso_coef
+lasso_coef[lasso_coef != 0]
+```
+Selecting only the predictors with non-zero coefficients, we see that the lasso model with lambda.
+
+
+Conclusion:
+
+The performance of the models is summarized below:
+
+Ridge Regression Model: Test set RMSE of 9.23
+Lasso Regression Model: Test set RMSE of 9.23
+
+The regularized regression models are performing better than the linear regression model. Overall, all the models are performing well with stable RMSE values.
+
+Holding other features of the building constant, the rental income per square foot will increase 0.293 when the building change from non green certificate to green certificate.      
+           
