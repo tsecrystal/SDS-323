@@ -21,7 +21,7 @@ greenb <- greenb %>%
 greenb <- greenb %>% 
   mutate(green_certified = ifelse(green_t > 0, "1", "0"))
 
-greenb <- select(greenb, -LEED,-Energystar, -green_t ) 
+greenb <- select(greenb, -LEED,-Energystar, -green_t, -Rent) 
 # We collapse LEED and EnergyStar certifications into a new dummy variable that encompasses all "green certified" buildings.  Forward selection is used to select the predictive variables that add significant variability to the statistical model. 
 
 lm0 = lm(Rent ~ 1, data = greenb)
