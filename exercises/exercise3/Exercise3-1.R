@@ -6,11 +6,14 @@ library(gamlr)
 library(tidyr)
 library(dplyr)
 
-###The goal of this project is to build the best predictive model possible for the price. In addition, we also want to use this model to quantify the average change in rental income per square foot associated with buildings that have green certification. 
-greenb = read.csv("~/Desktop/SDS 323/Exercises/Exercise 3/data/greenbuildings.csv")
+# Green Buildings
+
+#Given a large dataset on characteristics of commercial rental properties within the United States, our goal is to build the best predictive model possible for the price. Some of the characteristics included in the dataset include the building's age, number of stories, electricity costs, and average rent within the geographic region. 
+
+#In addition, we also want to use this model to quantify the average change in rental income per square foot associated with buildings that have green certification. 
+greenb = read.csv("greenbuildings.csv")
 names(greenb)
 
-# We collapse LEED and EnergyStar into a new dummy variable "green certified”. 
 greenb <- select(greenb, -CS_PropertyID)
 greenb <- greenb %>% 
   mutate(green_t = LEED + Energystar )
@@ -19,7 +22,7 @@ greenb <- greenb %>%
   mutate(green_certified = ifelse(green_t > 0, "1", "0"))
 
 greenb <- select(greenb, -LEED,-Energystar, -green_t ) 
-# We collapse LEED and EnergyStar into a new dummy variable "green certified”.  Forward selection is used to select the predictive variables that add significant variability to the statistical model. 
+# We collapse LEED and EnergyStar certifications into a new dummy variable that encompasses all "green certified" buildings.  Forward selection is used to select the predictive variables that add significant variability to the statistical model. 
 
 lm0 = lm(Rent ~ 1, data = greenb)
 lm_forward = step(lm0, direction = 'forward',
@@ -27,7 +30,7 @@ lm_forward = step(lm0, direction = 'forward',
 summary(lm_forward)
 
 
-#There are 43 variables chosen by forwarding selection. However, this linear model contains too many intersections and overfitting the model. 
+#There are 43 variables chosen by the forward selection technique. However, this linear model contains too many coefficients and interactions and leads to an overfitting of the model. 
 getCall(lm_forward)
 coef(lm_forward)
 length(coef(lm_forward))
@@ -44,7 +47,7 @@ y = greenb %>%
 grid = 10^seq(10, -2, length = 100)
 ridge_mod = glmnet(x, y, alpha = 0, lambda = grid)
 
-#Associated with each value of  λ is a vector of ridge regression coefficients,stored in a matrix that can be accessed.  
+#Associated with each value of  ?? is a vector of ridge regression coefficients, stored in a matrix that can be accessed.  
 dim(coef(ridge_mod))
 plot(ridge_mod, 
      sub = "Figure 1")
@@ -74,7 +77,7 @@ y_test = test %>%
   as.numeric()
 
 
-# Next we fit a ridge regression model on the training set, and evaluate its MSE on the test set
+# Next we fit a ridge regression model on the training set, and evaluate its MSE on the test set.
 ridge_mod = glmnet(x_train, y_train, alpha=0, lambda = grid, thresh = 1e-12)
 ridge_pred = predict(ridge_mod, s = 4, newx = x_test)
 mean((ridge_pred - y_test)^2)
@@ -85,19 +88,19 @@ print(MSE)
 #The test MSE is 216.10
 
 
-# We created model for ridge regression using training set with gamma chosen by cross-validation.
+# We created a model for ridge regression using training set with gamma chosen by cross-validation.
 set.seed(1)
 cv.out = cv.glmnet(x_train, y_train, alpha = 0) 
 # We select lamda that minimizes training MSE
 bestlam = cv.out$lambda.min  
 bestlam
-#the value of  λ that results in the smallest cross-validation error is 1.16
-# Plot of the relationship between training MSE and a function of lambda. The MSE increased as as λ increase.
+#The value of  ?? that results in the smallest cross-validation error is 1.16
+# Below is a plot of the relationship between training MSE and a function of lambda. The MSE increases as ?? increases.
 plot(cv.out,
-  sub = "Figure 2")
-  
+     sub = "Figure 2")
 
-#The test MSE associated with this value of  λ
+
+#The test MSE associated with this value of  ?? is shown below.
 ridge_pred = predict(ridge_mod, s = bestlam, newx = x_test)
 mean((ridge_pred - y_test)^2)
 # The test MSE is 86.09
@@ -116,7 +119,7 @@ eval_results <- function(true, predicted, df) {
   
 }
 
-# Prediction and evaluation on train data and test data. We got the RMSE = 27.02 for the traini data
+# Prediction and evaluation on train data and test data. We got the RMSE = 27.02 for the training data.
 predictions_train <- predict(ridge_mod, s = bestlam, newx = x)
 eval_results(y_train, predictions_train, train)
 
@@ -130,7 +133,7 @@ out = glmnet(x, y, alpha = 0)
 predict(out, type = "coefficients", s = bestlam)[1:21,] 
 
 # Because none of the coefficients are exactly zero - ridge regression does not perform variable selection! 
-#LASSO is a penalized regression method that improves OLS and Ridge regression. LASSO does shrinkage and variable selection simultaneously for better prediction and model interpretation. Therefore, we decide to creat a model for lasso regression using training set with gamma chosen by cross-validation.
+#LASSO is a penalized regression method that improves OLS and Ridge regression. LASSO does shrinkage and variable selection simultaneously for better prediction and model interpretation. Therefore, we decide to create a model for lasso regression using training set with gamma chosen by cross-validation.
 
 lasso_mod = glmnet(x_train, 
                    y_train, 
@@ -142,7 +145,7 @@ lasso_mod = glmnet(x_train,
 set.seed(1)
 # Fitting model to the test set and checking accuracy. 
 cv.out = cv.glmnet(x_train, y_train, alpha = 1) 
-# The plot showes the relationship between training MSE and a function of lambda
+# The plot shows the relationship between training MSE and a function of lambda
 plot(cv.out,
      sub = "Figure 3")
 
@@ -164,7 +167,7 @@ out = glmnet(x, y, alpha = 1, lambda = grid)
 lasso_coef = predict(out, type = "coefficients", s = bestlam)[1:21,] 
 lasso_coef
 
-# Selecting only the predictors with non-zero coefficients, we see that the lasso model with λ.
+# Selecting only the predictors with non-zero coefficients, we see that the lasso model with ??.
 lasso_coef[lasso_coef != 0]
 
 
