@@ -19,9 +19,11 @@ bank10 = read_delim("bank-additional.csv", delim = ";")
 bank10 <- bank10 %>% replace_with_na_all(condition = ~.x == "unknown")
 bank10 <-bank10[complete.cases(bank10), ] # went from 4119 to 3090 obs
 
-# split into quantitative and qualitative data frames for kmeansvar of ClustOfVar
-# bank_quant = dplyr::select_if(bank10, is.numeric)
-# bank_qual = dplyr::select_if(bank10, is.character)
+# maybe it is worth removing pdays since it only occurs 142 times out of the 3090 obs
+sum(bank10$pdays != 999)
+
+# remove duration because it is highly correlated with y (duration = 0 --> no)
+bank10 = subset(bank10, select = -c(duration, pdays) )
 
 ## Hierarchical Clustering
 X.quanti <- PCAmixdata::splitmix(bank10)$X.quanti
@@ -29,33 +31,29 @@ X.quali <- PCAmixdata::splitmix(bank10)$X.quali
 tree <- hclustvar(X.quanti,X.quali)
 plot(tree)
 
+part<-cutreevar(tree,6) #cut of the tree
+summary(part)
+plot.clustvar(part) # plot loadings of each cluster
 
 ## K-means clustering revised for qualitative and quantitative mixed data
 # maybe edit the number of clusters (init) to be optimal  ##debug
 # choice of the number of clusters
-# bank_quant = as.matrix(as.data.frame(lapply(bank_quant, as.numeric)))
 
-# tree <- hclustvar(X.quanti=bank_quant)
+# stability: bootstrap approach to help identify number of clusters
 # stab <- stability(tree,B=60)
 
-bank_qual = mutate(bank_qual, 
+X.quali = mutate(X.quali, 
                 default = ifelse(default == "yes", "yes_default", "no_default"),
                 housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
                 loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
                 # y = ifelse(y == "yes", "1", 0))
 
-# xcor = cor(bank_quant)
-# write.csv(xcor, 'xcor.csv')
-
-library(digest)
-bank_qual2 = bank_qual[!duplicated(lapply(bank_qual, digest))]
 
 ## debug also increase iter.max later
-bank_kmeans = kmeansvar(X.quanti = bank_quant, 
-                        X.quali = bank_qual2, 
+bank_kmeans = kmeansvar(X.quanti = X.quanti, 
+                        X.quali = X.quali, 
                         init = 3,
                         iter.max = 10,
                         nstart = 1, matsim = FALSE)
-
 
 
