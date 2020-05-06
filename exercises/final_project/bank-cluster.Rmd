@@ -1,3 +1,16 @@
+---
+title: "bank-cluster"
+author: "Crystal Tse"
+date: "5/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+```
+
+```{r}
 library(mosaic)
 library(tidyverse)
 library(ggplot2)
@@ -14,7 +27,10 @@ library(ClustOfVar)
 
 bank = read_delim("bank-additional-full.csv", delim = ";")
 bank10 = read_delim("bank-additional.csv", delim = ";")
+```
 
+
+```{r}
 # get rid of observations that have unknowns
 bank10 <- bank10 %>% replace_with_na_all(condition = ~.x == "unknown")
 bank10 <-bank10[complete.cases(bank10), ] # went from 4119 to 3090 obs
@@ -25,17 +41,27 @@ sum(bank10$pdays != 999)
 # remove duration because it is highly correlated with y (duration = 0 --> no)
 bank10 = subset(bank10, select = -c(duration, pdays) )
 
+```
+
 ## Hierarchical Clustering
+
+```{r}
 X.quanti <- PCAmixdata::splitmix(bank10)$X.quanti
 X.quali <- PCAmixdata::splitmix(bank10)$X.quali
 tree <- hclustvar(X.quanti,X.quali)
-plot(tree)
+plot(tree)  # dendrogram
+```
 
+
+```{r}
 part<-cutreevar(tree,6) #cut of the tree
 summary(part)
 res.plot <- plot.clustvar(part) # plot of loadings of each cluster
 res.plot$coord.quanti
 res.plot$coord.levels
+```
+
+```{r}
 
 ## K-means clustering revised for qualitative and quantitative mixed data
 # maybe edit the number of clusters (init) to be optimal  ##debug
@@ -43,6 +69,9 @@ res.plot$coord.levels
 
 # stability: bootstrap approach to help identify number of clusters
 # stab <- stability(tree,B=60)
+X.quanti <- PCAmixdata::splitmix(bank10)$X.quanti
+X.quali <- PCAmixdata::splitmix(bank10)$X.quali
+
 
 X.quali = mutate(X.quali, 
                 default = ifelse(default == "yes", "yes_default", "no_default"),
@@ -56,6 +85,8 @@ bank_kmeans = kmeansvar(X.quanti = X.quanti,
                         X.quali = X.quali, 
                         init = 3,
                         iter.max = 10,
-                        nstart = 1, matsim = FALSE)
+                        nstart = 1, matsim = TRUE)
 
 plot.clustvar(bank_kmeans)
+```
+
