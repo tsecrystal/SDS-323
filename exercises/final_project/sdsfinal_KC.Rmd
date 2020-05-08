@@ -1,0 +1,36 @@
+---
+title: "Final Project"
+author: Crystal Tse, Kyle Carter, Jinfang Yan
+output: html_document
+---
+
+```{r setup, include = FALSE, message = FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Bank Marketing
+
+
+### Abstract
+
+
+
+### Introduction
+The data set was found on the UCI machine learning repository. It contains information from phone-based direct marketing campaigns of a Portuguese Bank. The objective of the marketing campaign was for the customer to accept a term deposit. A term deposit is a short-term investment where cash is deposited into an account at a bank, for example a certificate of deposit. The term is fixed, so the investment is locked in for a period of time and cannot be withdrawn early without incurring a penalty. The bank in turn lends this money out to businesses or individuals, and pays the investor interest for the use of their money. The bank values term deposits over savings accounts because in those cases the investor may withdraw at any time, making it difficult for the bank to estimate how much may be lent out at any given time. A term deposit guarantees a generally higher interest rate for the investor in exchange for this illiquidity, and the bank gains the certainty of funds available to be lent out.
+Given individual demographic information as well as macroeconomic economic data, can we predict if a customer will accept a term deposit?
+The variables give basic information about the client such as age, job, marital status, and education; consumer information, including loans and if the client has defaulted; campaign information, with outcomes of previous campaigns and contact type; and economic data, such as unemployment rate, EURIBOR 3 month rates, and consumer conifidence index.
+
+The variable duration was removed from the data set prior to modeling because it is a measure of the last contact duration in seconds. It is highly predictive of the dependent variable, however the duration of a marketing call is not known before the call begins. Furthermore, after the call is over, the outcome is known as well as the duration. This variable is not useful for making predictions and is highly correlated with the outcome variable deposit, so it has been removed. 
+
+
+The clients were grouped by contact type (cellular or telephone) to see if this variable was correlated with age. The thinking being that younger people tend to have cellphones and older people tend to have telephones (i.e. landline). While telephone contact type had a slightly higher mean age, there is not enough of a statistically significant difference.
+
+```{r echo=FALSE}
+# EDA -----
+
+
+
+
+
+```
