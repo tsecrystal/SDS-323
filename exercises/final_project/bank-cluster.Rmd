@@ -7,10 +7,10 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
-
+# results='hide' to get rid of text output
 ```
 
-```{r}
+```{r message = FALSE}
 library(mosaic)
 library(tidyverse)
 library(ggplot2)
@@ -48,9 +48,40 @@ bank10 = subset(bank10, select = -c(duration, pdays) )
 ```{r}
 X.quanti <- PCAmixdata::splitmix(bank10)$X.quanti
 X.quali <- PCAmixdata::splitmix(bank10)$X.quali
-tree <- hclustvar(X.quanti,X.quali)
+X.quali = mutate(X.quali,
+                default = ifelse(default == "yes", "yes_default", "no_default"),
+                housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
+                loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
+# Center and scale the quantitative data
+X.quanti_sc = scale(X.quanti, center=TRUE, scale=TRUE)
+
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(X.quanti_sc,"scaled:center")
+sigma = attr(X.quanti_sc,"scaled:scale")
+
+# can also try the iclust() function within the psych package
+# or clusters() function in the igraph package
+# https://stackoverflow.com/questions/51160951/clustering-analysis/51161138#51161138
+tree <- hclustvar(X.quanti_sc, X.quali)
 plot(tree)  # dendrogram
+
 ```
+
+```{r}
+# X.quanti = PCAmixdata::splitmix(bank10)$X.quanti
+# X.quali = PCAmixdata::splitmix(bank10)$X.quali
+# X.quali = mutate(X.quali,
+#                 default = ifelse(default == "yes", "yes_default", "no_default"),
+#                 housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
+#                 loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
+
+
+# stability: bootstrap approach to help identify number of clusters
+stab = stability(tree,B=60)
+# plot(stab,main="Stability of the partitions")
+# boxplot(stab$matCR[,1:7])
+```
+
 
 
 ```{r}
@@ -61,32 +92,65 @@ res.plot$coord.quanti
 res.plot$coord.levels
 ```
 
+
+
+
+```{r}
+#the partition from the hierarchical clustering is chosen as initial partition
+X.quanti <- PCAmixdata::splitmix(bank10)$X.quanti
+X.quali <- PCAmixdata::splitmix(bank10)$X.quali
+X.quali = mutate(X.quali,
+                default = ifelse(default == "yes", "yes_default", "no_default"),
+                housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
+                loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
+
+# Center and scale the quantitative data
+X.quanti_sc = scale(X.quanti, center=TRUE, scale=TRUE)
+
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(X.quanti_sc,"scaled:center")
+sigma = attr(X.quanti_sc,"scaled:scale")
+
+part_init <- cutreevar(tree,5)$cluster
+part2 <- kmeansvar(X.quanti_sc, X.quali, init=part_init, matsim=TRUE)
+# Gain in cohesion (in %):  38.74
+summary(part2)
+part2$sim
+```
+
+
 ```{r}
 
 ## K-means clustering revised for qualitative and quantitative mixed data
 # maybe edit the number of clusters (init) to be optimal  ##debug
 # choice of the number of clusters
-
-# stability: bootstrap approach to help identify number of clusters
-# stab <- stability(tree,B=60)
 X.quanti <- PCAmixdata::splitmix(bank10)$X.quanti
 X.quali <- PCAmixdata::splitmix(bank10)$X.quali
+X.quali = mutate(X.quali,
+                 default = ifelse(default == "yes", "yes_default", "no_default"),
+                 housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
+                 loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
 
+# Center and scale the quantitative data
+X.quanti_sc = scale(X.quanti, center=TRUE, scale=TRUE)
 
-X.quali = mutate(X.quali, 
-                default = ifelse(default == "yes", "yes_default", "no_default"),
-                housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
-                loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
-                # y = ifelse(y == "yes", "1", 0))
-
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(X.quanti_sc,"scaled:center")
+sigma = attr(X.quanti_sc,"scaled:scale")
 
 ## debug also increase iter.max later
-bank_kmeans = kmeansvar(X.quanti = X.quanti, 
+bank_kmeans = kmeansvar(X.quanti = X.quanti_sc, 
                         X.quali = X.quali, 
                         init = 3,
                         iter.max = 10,
                         nstart = 1, matsim = TRUE)
 
 plot.clustvar(bank_kmeans)
+
+
 ```
+
+
+
+
 
