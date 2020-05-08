@@ -93,7 +93,7 @@ ggplot(data = bank10) +
 
 
 
-# Cut age to different 
+# Cut age to different range
 bank10 <- bank10 %>% 
   mutate(age_distri = cut(age, c(20,40, 60, 80, 100)))
 summary(bank10)
