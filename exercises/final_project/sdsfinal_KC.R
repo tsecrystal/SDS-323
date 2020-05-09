@@ -1,4 +1,22 @@
-packs <- c("tidyverse","tidyr","corrplot","caret","factoextra","cluster","dendextend","kableExtra","ggcorrplot","mosaic","psych","gridExtra","LICORS", "SDSRegressionR")
+library(gmodels) # Cross Tables [CrossTable()]
+library(ggmosaic) # Mosaic plot with ggplot [geom_mosaic()]
+library(corrplot) # Correlation plot [corrplot()]
+library(ggpubr) # Arranging ggplots together [ggarrange()]
+library(cowplot) # Arranging ggplots together [plot_grid()]
+library(caret) # ML [train(), confusionMatrix(), createDataPartition(), varImp(), trainControl()]
+library(ROCR) # Model performance [performance(), prediction()]
+library(plotROC) # ROC Curve with ggplot [geom_roc()]
+library(pROC) # AUC computation [auc()]
+library(PRROC) # AUPR computation [pr.curve()]
+library(rpart) # Decision trees [rpart(), plotcp(), prune()]
+library(rpart.plot) # Decision trees plotting [rpart.plot()]
+library(MLmetrics) # Custom metrics (F1 score for example)
+library(tidyverse) # Data manipulation
+
+
+packs <- c("tidyverse","tidyr","corrplot","caret","factoextra","cluster",
+           "dendextend","kableExtra","ggcorrplot","mosaic","psych","gridExtra","LICORS","forcats",
+           "randomForest","pdp")
 lapply(packs, library, character.only = TRUE)
 
 #small bank data set
@@ -9,15 +27,14 @@ bbank <- read.csv("data/bank-additional-full.csv",
                     header = TRUE, sep =";")
 
 bbank <- bbank %>% dplyr::rename("deposit"="y")
+bbank <- bbank[!duplicated(bbank), ]
 bbank$duration <- NULL
 tally(~bbank$deposit)
 bbank$deposit <- as.numeric(bbank$deposit)
 bbank$deposit <- factor(bbank$deposit, levels=c(2,1), labels=c("Yes", "No"))
 
-
 sum(is.na.data.frame(bbank))
 head(bbank)
-
 set.seed(343)
 
 b_mod <- glm(deposit ~ ., family="binomial", data=bbank)
@@ -28,15 +45,14 @@ b_mod2 <- lrm(deposit ~ ., bbank)
 b_mod2
 
 # EDA -----
-library(forcats)
-ggplot(bbank, aes(x=fct_rev(fct_infreq(job)))) +
-  geom_bar(fill="light green")+
+ggplot(bbank, aes(x=fct_rev(fct_infreq((job))))) +
+  geom_bar(fill="blue")+
   coord_flip()+
   theme_bw()+
   labs(x="Job Title", y="Count")
 
 ggplot(bbank, aes(x=fct_rev(fct_infreq(deposit)))) + 
-  geom_bar(fill="dark blue") +
+  geom_bar(fill="darkblue") +
   coord_flip() + 
   theme_bw() + 
   labs(x="Marital Status", y="Count")
@@ -49,9 +65,9 @@ ggplot(bbank, aes(x=euribor3m)) +
 aggregate(bbank[, 18], list(bbank$deposit), median)
 
 tally(~bbank$campaign)
+
 #thankfully, there are only a small number of unkowns
 
-plot(bbank$bbank$deposit)
 ggplot(bbank, aes(pdays))+
   geom_histogram()
 
@@ -69,8 +85,6 @@ ggplot(bbank, aes(pdays)) +
   facet_grid(~deposit)
 
 # Random Forest -----
-library(randomForest)
-library(pdp)
 n = nrow(bbank)
 n_train = floor(0.8*n)
 n_test = n - n_train
@@ -95,9 +109,6 @@ yhat_test = predict(forest1, bbank_test)
 
 plot(yhat_test, y_test)
 
-# RMSE
-(yhat_test - y_test)^2 %>% mean %>% sqrt
-
 # performance as a function of iteration number
 plot(forest1)
 
@@ -106,11 +117,117 @@ varImpPlot(forest1)
 
 confusionMatrix(yhat_test,y_test)
 
-#fix the y variable with factor
+p1 = pdp::partial(forest1, pred.var = 'job')
+p1
+plot(p1)
 
 
 ### also try: adaboost (or boosted logistic), kmeans, clustering
 
+tally(~bbank$month)
+tally(~bbank$day_of_week)
 
-library(party)
-cforest(deposit ~ ., data=bbank)
+month_recode = c("mar" = "(03)mar",
+                 "apr" = "(04)apr",
+                 "may" = "(05)may",
+                 "jun" = "(06)jun",
+                 "jul" = "(07)jul",
+                 "aug" = "(08)aug",
+                 "sep" = "(09)sep",
+                 "oct" = "(10)oct",
+                 "nov" = "(11)nov",
+                 "dec" = "(12)dec")
+#mar,apr,may,jun,jul,aug,sep,oct,nov,dec
+bbank = bbank %>% 
+  mutate(month = recode(month, !!!month_recode))
+
+day_recode = c("mon" = "(01)mon",
+               "tue" = "(02)tue",
+               "wed" = "(03)wed",
+               "thu" = "(04)thu",
+               "fri" = "(05)fri")
+
+bbank = bbank %>% 
+  mutate(day_of_week = recode(day_of_week, !!!day_recode))
+
+bank_data = bank_data %>% 
+  mutate(pdays_dummy = if_else(pdays == 999, "0", "1")) %>% 
+  select(-pdays)
+
+
+bbank2 <- bbank
+bbank2 <- bbank2 %>% 
+  mutate(age = if_else(age > 60, "high", if_else(age > 30, "mid", "low")))
+
+fxtable = function(df, var1, var2){
+  # df: dataframe containing both vars
+  # var1, var2: columns to cross together.
+  CrossTable(df[, var1], df[, var2],
+             prop.r = T,
+             prop.c = F,
+             prop.t = F,
+             prop.chisq = F,
+             dnn = c(var1, var2))
+}
+
+#fxtables
+fxtable(bbank2, "age","deposit")
+fxtable(bbank2, "job", "deposit")
+fxtable(bbank2,"marital","deposit")
+fxtable(bbank2,"education", "deposit")
+fxtable(bbank2,"default","deposit")
+fxtable(bbank2,"housing","deposit")
+fxtable(bbank2,"contact","deposit")
+fxtable(bbank2,"month","deposit")
+fxtable(bbank2,"day_of_week","deposit")
+fxtable(bbank2,"campaign","deposit")
+fxtable(bbank2, "previous", "deposit")
+fxtable(bbank2, "poutcome","deposit")
+
+#filtered out 
+bank_data = bank_data %>% 
+  filter(job != "unknown") %>% 
+  filter(marital !="unkown") %>%
+  filter(education !="illiterate") %>% 
+  filter(campaign<=10) %>% 
+  mutate(pdays_d=if_else(pdays==999, "0","1")) %>% 
+  select(-pdays)
+
+
+fxtable(bbank2,"pdays_d","deposit")
+
+
+
+
+prop_row = fun_crosstable(bank_data, "campaign", "y")$prop.row %>% 
+  as.data.frame() %>% 
+  filter(y == 1)
+
+prop_row %>% 
+  ggplot() +
+  aes(x = x,
+      y = Freq) +
+  geom_point() +
+  geom_hline(yintercept = 0.085, 
+             col = "red")
+
+
+df_new['campaign_buckets'] = pd.qcut(df_new['campaign_cleaned'], 20, labels=False, duplicates = 'drop')
+
+#group by 'balance_buckets' and find average campaign outcome per balance bucket
+mean_campaign = df_new.groupby(['campaign_buckets'])['deposit_bool'].mean()
+
+#plot average campaign outcome per bucket 
+plt.plot(mean_campaign.index, mean_campaign.values)
+plt.title('Mean % subscription depending on number of contacts')
+plt.xlabel('number of contacts bucket')
+plt.ylabel('% subscription')
+plt.show()
+
+
+
+
+
+
+
+
