@@ -1,0 +1,211 @@
+---
+title: "bank-cluster2"
+author: "Crystal Tse"
+date: "5/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+# results='hide' to get rid of text output
+```
+
+```{r message = FALSE}
+library(mosaic)
+library(tidyverse)
+library(ggplot2)
+library(randomForest)
+library(pdp)
+library(lubridate)
+library(naniar)
+library(rpart)
+library(dplyr)
+library(fastDummies)
+library(class)
+library(ClustOfVar)
+
+
+bank = read_delim("bank-additional-full.csv", delim = ";")
+bank10 = read_delim("bank-additional.csv", delim = ";")
+```
+
+
+```{r}
+bank <- unique(bank)
+bank10 <- unique(bank10)
+# get rid of observations that have unknowns
+bank <- bank %>% replace_with_na_all(condition = ~.x == "unknown")
+bank <-bank[complete.cases(bank), ] # went from 4119 to 3090 obs
+
+# remove duration because it is highly correlated with y (duration = 0 --> no)
+bank = subset(bank, select = -c(duration, default) )
+
+```
+
+## Hierarchical Clustering
+
+```{r}
+X.quanti <- PCAmixdata::splitmix(bank)$X.quanti
+X.quali <- PCAmixdata::splitmix(bank)$X.quali
+#also get rid of identical qualitative categories
+X.quali = mutate(X.quali,
+                housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
+                loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
+# Center and scale the quantitative data
+X.quanti_sc = scale(X.quanti, center=TRUE, scale=TRUE)
+
+tree <- hclustvar(X.quanti_sc, X.quali)
+plot(tree)  # dendrogram
+
+```
+
+```{r}
+
+# stability: bootstrap approach to help identify number of clusters
+stab = stability(tree,B=50)
+# plot(stab,main="Stability of the partitions")
+# boxplot(stab$matCR[,1:7])
+```
+
+
+
+```{r}
+part<-cutreevar(tree,6) #cut of the tree
+summary(part)
+# Gain in cohesion (in %):  50.26
+res.plot <- plot.clustvar(part) # plot of loadings of each cluster
+res.plot$coord.quanti
+res.plot$coord.levels
+```
+
+
+
+
+```{r}
+#the partition from the hierarchical clustering is chosen as initial partition
+X.quanti <- PCAmixdata::splitmix(bank)$X.quanti
+X.quali <- PCAmixdata::splitmix(bank)$X.quali
+
+#also get rid of identical qualitative categories
+X.quali = mutate(X.quali,
+                housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
+                loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
+# Center and scale the quantitative data
+X.quanti_sc = scale(X.quanti, center=TRUE, scale=TRUE)
+
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(X.quanti_sc,"scaled:center")
+sigma = attr(X.quanti_sc,"scaled:scale")
+
+part_init <- cutreevar(tree,5)$cluster
+part2 <- kmeansvar(X.quanti_sc, X.quali, init=part_init, matsim=TRUE)
+# Gain in cohesion (in %):  38.74 --> 42.88
+summary(part2)
+part2$sim
+```
+
+
+```{r}
+
+## K-means clustering revised for qualitative and quantitative mixed data
+# maybe edit the number of clusters (init) to be optimal  ##debug
+# choice of the number of clusters
+X.quanti <- PCAmixdata::splitmix(bank)$X.quanti
+X.quali <- PCAmixdata::splitmix(bank)$X.quali
+# # convert pdays to a dummy variable with 999 (not contacted) as 0 and any other value as one
+# X.quanti <- mutate(X.quanti, pdays = ifelse(pdays == 999, 0, 1))
+#also get rid of identical qualitative categories
+X.quali = mutate(X.quali,
+                housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
+                loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
+# Center and scale the quantitative data
+X.quanti_sc = scale(X.quanti, center=TRUE, scale=TRUE)
+
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(X.quanti_sc,"scaled:center")
+sigma = attr(X.quanti_sc,"scaled:scale")
+
+## debug also increase iter.max later
+bank_kmeans = kmeansvar(X.quanti = X.quanti_sc, 
+                        X.quali = X.quali, 
+                        init = 4,
+                        iter.max = 10,
+                        nstart = 1, matsim = TRUE)
+
+plot.clustvar(bank_kmeans)
+bank_kmeans$sim
+bank_kmeans$size
+```
+
+## Naive Bayes
+```{r}
+N = nrow(bank)
+D = ncol(bank)
+# First split into a training and set set
+X_NB = subset(bank, select = -c(y))  # feature matrix
+y_NB = 0+{bank$y == 'yes'}  # target variable
+
+train_frac = 0.8
+train_set = sort(sample.int(N, floor(train_frac*N)))
+test_set = setdiff(1:N, train_set)
+
+# training and testing matrices
+X_train = X_NB[train_set,]
+
+# Notice the smoothing (pseudo-count) to the training matrix
+# this ensures we don't have zero-probability events
+ok <- sapply(X_train, is.numeric)
+X_train<-replace(X_train, ok, +1/D)
+
+y_train = y_NB[train_set]
+X_test = X_NB[test_set,]
+y_test = y_NB[test_set]
+
+# First construct our vectors of probabilities under D (0) and R (1) classes
+# smoothing the training matrix of counts was important so that we get no zeros here
+pvec_0 = colSums(X_train[y_train==0,])  ## debug do one-hot encoding
+pvec_0 = pvec_0/sum(pvec_0)
+pvec_1 = colSums(X_train[y_train==1,])
+pvec_1 = pvec_1/sum(pvec_1)
+
+
+```
+
+
+# these aren't great...below.
+```{r}
+library(e1071)  # naive Bayes package
+#split data into training and test data sets
+indxTrain <- createDataPartition(y = bank$y,p = 0.75,list = FALSE)
+training <- bank[indxTrain,]
+testing <- bank[-indxTrain,]
+ 
+ok <- sapply(training, is.numeric)
+training<-replace(training, ok, +1/D)
+
+# table(default_pred, testing$response,dnn=c("Prediction","Actual"))
+# Check dimensions of the split: they should all be exactly the same...
+prop.table(table(bank$y)) * 100
+prop.table(table(training$y)) * 100
+prop.table(table(testing$y)) * 100
+
+#create objects x which holds the predictor variables and y which holds the response variables
+x <- subset(training, select = -c(y))
+y = training$y
+# model = train(x,y,'nb',trControl=trainControl(method='cv',number=10))
+#Default Parameters
+# nb_default <- naiveBayes(y ~., data=bank)
+# default_pred <- predict(nb_default, testing, type="class")
+ 
+```
+
+```{r}
+# nb_default2 <- naiveBayes(y ~., data=bank)
+# default_pred <- predict(nb_default2, bank$y)
+```
+
+
+
+
+
+
