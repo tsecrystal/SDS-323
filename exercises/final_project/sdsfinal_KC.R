@@ -35,14 +35,27 @@ bbank$deposit <- factor(bbank$deposit, levels=c(2,1), labels=c("Yes", "No"))
 
 sum(is.na.data.frame(bbank))
 head(bbank)
+
+bbank3 <- bbank
+levels(bbank3$deposit)=1:0
 set.seed(343)
 
-b_mod <- glm(deposit ~ ., family="binomial", data=bbank)
+ind = createDataPartition(bbank3$deposit,
+                          times = 1,
+                          p = 0.75,
+                          list = F)
+bbank3_train = bbank3[ind, ]
+bbank3_test = bbank3[-ind, ]
+
+b_mod <- glm(deposit ~ ., family="binomial", data=bbank3_train)
 summary(b_mod)
 
-library(rms)
-b_mod2 <- lrm(deposit ~ ., bbank)
-b_mod2
+b_modpred = predict(b_mod, bbank3_test, type = "response")
+
+bpred <- ifelse(b_modpred<0.5, 1, 0)
+
+table(y=bbank3_test$deposit, yhat=bpred)
+confusionMatrix(data=factor(bpred), reference = factor(bbank3_test$deposit))
 
 # EDA -----
 ggplot(bbank, aes(x=fct_rev(fct_infreq((job))))) +
