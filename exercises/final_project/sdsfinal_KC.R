@@ -1,9 +1,6 @@
-library(gmodels) # Cross Tables [CrossTable()]
 library(ggmosaic) # Mosaic plot with ggplot [geom_mosaic()]
-library(corrplot) # Correlation plot [corrplot()]
 library(ggpubr) # Arranging ggplots together [ggarrange()]
 library(cowplot) # Arranging ggplots together [plot_grid()]
-library(caret) # ML [train(), confusionMatrix(), createDataPartition(), varImp(), trainControl()]
 library(ROCR) # Model performance [performance(), prediction()]
 library(plotROC) # ROC Curve with ggplot [geom_roc()]
 library(pROC) # AUC computation [auc()]
@@ -11,134 +8,28 @@ library(PRROC) # AUPR computation [pr.curve()]
 library(rpart) # Decision trees [rpart(), plotcp(), prune()]
 library(rpart.plot) # Decision trees plotting [rpart.plot()]
 library(MLmetrics) # Custom metrics (F1 score for example)
-library(tidyverse) # Data manipulation
-
 
 packs <- c("tidyverse","tidyr","corrplot","caret","factoextra","cluster",
            "dendextend","kableExtra","ggcorrplot","mosaic","psych","gridExtra","LICORS","forcats",
-           "randomForest","pdp")
+           "randomForest","pdp","gmodels")
 lapply(packs, library, character.only = TRUE)
 
 #small bank data set
 sbank <- read.csv("data/bank-additional.csv",  stringsAsFactors = TRUE, sep=";")
 
 #big bank data set
-bbank <- read.csv("data/bank-additional-full.csv",
+bank <- read.csv("data/bank-additional-full.csv",
                     header = TRUE, sep =";")
 
-bbank <- bbank %>% dplyr::rename("deposit"="y")
-bbank <- bbank[!duplicated(bbank), ]
-bbank$duration <- NULL
-tally(~bbank$deposit)
-bbank$deposit <- as.numeric(bbank$deposit)
-bbank$deposit <- factor(bbank$deposit, levels=c(2,1), labels=c("Yes", "No"))
+sum(is.na.data.frame(bank))
+bank <- bank %>% dplyr::rename("deposit"="y")
+bank <- bank[!duplicated(bank), ]
+bank$duration <- NULL
+bank$default <- NULL
 
-sum(is.na.data.frame(bbank))
-head(bbank)
-
-bbank3 <- bbank
-levels(bbank3$deposit)=1:0
-set.seed(343)
-
-ind = createDataPartition(bbank3$deposit,
-                          times = 1,
-                          p = 0.75,
-                          list = F)
-bbank3_train = bbank3[ind, ]
-bbank3_test = bbank3[-ind, ]
-
-b_mod <- glm(deposit ~ ., family="binomial", data=bbank3_train)
-summary(b_mod)
-
-b_modpred = predict(b_mod, bbank3_test, type = "response")
-
-bpred <- ifelse(b_modpred<0.5, 1, 0)
-
-table(y=bbank3_test$deposit, yhat=bpred)
-confusionMatrix(data=factor(bpred), reference = factor(bbank3_test$deposit))
-
-# EDA -----
-ggplot(bbank, aes(x=fct_rev(fct_infreq((job))))) +
-  geom_bar(fill="blue")+
-  coord_flip()+
-  theme_bw()+
-  labs(x="Job Title", y="Count")
-
-ggplot(bbank, aes(x=fct_rev(fct_infreq(deposit)))) + 
-  geom_bar(fill="darkblue") +
-  coord_flip() + 
-  theme_bw() + 
-  labs(x="Marital Status", y="Count")
-
-ggplot(bbank, aes(x=euribor3m)) + 
-  geom_histogram()+
-  facet_wrap(~deposit)
-
-
-aggregate(bbank[, 18], list(bbank$deposit), median)
-
-tally(~bbank$campaign)
-
-#thankfully, there are only a small number of unkowns
-
-ggplot(bbank, aes(pdays))+
-  geom_histogram()
-
-ggplot(bbank, aes(x=deposit))+
-  geom_bar()
-
-ggplot(bbank, aes(x=month)) + 
-  geom_bar()
-summary(bbank$deposit)
-
-head(bbank)
-
-ggplot(bbank, aes(pdays)) +
-  geom_histogram() +
-  facet_grid(~deposit)
-
-# Random Forest -----
-n = nrow(bbank)
-n_train = floor(0.8*n)
-n_test = n - n_train
-train_cases = sample.int(n, size=n_train, replace=FALSE)
-y_all = bbank$deposit
-x_all = model.matrix(~age+job+marital+education+default+housing+loan+contact+month+day_of_week
-                     +campaign+pdays+previous+poutcome+emp.var.rate+cons.price.idx+cons.conf.idx
-                     +euribor3m+nr.employed, data=bbank)
-
-y_train = y_all[train_cases]
-x_train = x_all[train_cases,]
-
-y_test = y_all[-train_cases]
-x_test = x_all[-train_cases,]
-
-bbank_train = bbank[train_cases,]
-bbank_test = bbank[-train_cases,]
-
-forest1 = randomForest(deposit ~ ., data=bbank_train)
-
-yhat_test = predict(forest1, bbank_test)
-
-plot(yhat_test, y_test)
-
-# performance as a function of iteration number
-plot(forest1)
-
-# a variable importance plot: how much SSE decreases from including each var
-varImpPlot(forest1)
-
-confusionMatrix(yhat_test,y_test)
-
-p1 = pdp::partial(forest1, pred.var = 'job')
-p1
-plot(p1)
-
-
-### also try: adaboost (or boosted logistic), kmeans, clustering
-
-tally(~bbank$month)
-tally(~bbank$day_of_week)
+tally(~bank$deposit)
+bank$deposit <- as.numeric(bank$deposit)
+bank$deposit <- factor(bank$deposit, levels=c(2,1), labels=c("Yes", "No"))
 
 month_recode = c("mar" = "(03)mar",
                  "apr" = "(04)apr",
@@ -150,27 +41,55 @@ month_recode = c("mar" = "(03)mar",
                  "oct" = "(10)oct",
                  "nov" = "(11)nov",
                  "dec" = "(12)dec")
-#mar,apr,may,jun,jul,aug,sep,oct,nov,dec
-bbank = bbank %>% 
+
+bank = bank %>% 
   mutate(month = recode(month, !!!month_recode))
 
-day_recode = c("mon" = "(01)mon",
-               "tue" = "(02)tue",
-               "wed" = "(03)wed",
-               "thu" = "(04)thu",
-               "fri" = "(05)fri")
+day_recode = c("mon" = "(01)mon","tue" = "(02)tue","wed" = "(03)wed","thu" = "(04)thu","fri" = "(05)fri")
 
-bbank = bbank %>% 
+bank = bank %>% 
   mutate(day_of_week = recode(day_of_week, !!!day_recode))
 
-bank_data = bank_data %>% 
-  mutate(pdays_dummy = if_else(pdays == 999, "0", "1")) %>% 
-  select(-pdays)
 
+# EDA -----
+tab1 <- table(bank$deposit)
+prop.table(tab1)
 
-bbank2 <- bbank
-bbank2 <- bbank2 %>% 
-  mutate(age = if_else(age > 60, "high", if_else(age > 30, "mid", "low")))
+ggplot(bank, aes(x=fct_rev(fct_infreq((job))))) +
+  geom_bar(fill="blue")+
+  coord_flip()+
+  theme_bw()+
+  labs(x="Job Title", y="Count")
+
+ggplot(bank, aes(x=fct_rev(fct_infreq(deposit)))) + 
+  geom_bar(fill="darkblue") +
+  coord_flip() + 
+  theme_bw() + 
+  labs(x="Marital Status", y="Count")
+
+ggplot(bank, aes(x=euribor3m, fill=deposit)) + 
+  geom_histogram(bins=30)+
+  facet_wrap(~deposit)
+
+aggregate(bank[, 18], list(bank$deposit), median)
+
+ggplot(bank, aes(x=month)) + 
+  geom_bar()
+summary(bank$deposit)
+
+ggplot(bank, aes(pdays)) +
+  geom_histogram() +
+  facet_grid(~deposit)
+
+bank %>% 
+  select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed) %>% 
+  cor() %>% 
+  corrplot(method = "number",
+           type = "upper",
+           tl.cex = 0.8,
+           tl.srt = 35,
+           tl.col = "black")
+
 
 fxtable = function(df, var1, var2){
   # df: dataframe containing both vars
@@ -183,62 +102,177 @@ fxtable = function(df, var1, var2){
              dnn = c(var1, var2))
 }
 
-#fxtables
-fxtable(bbank2, "age","deposit")
-fxtable(bbank2, "job", "deposit")
-fxtable(bbank2,"marital","deposit")
-fxtable(bbank2,"education", "deposit")
-fxtable(bbank2,"default","deposit")
-fxtable(bbank2,"housing","deposit")
-fxtable(bbank2,"contact","deposit")
-fxtable(bbank2,"month","deposit")
-fxtable(bbank2,"day_of_week","deposit")
-fxtable(bbank2,"campaign","deposit")
-fxtable(bbank2, "previous", "deposit")
-fxtable(bbank2, "poutcome","deposit")
 
+bank2 <- bank %>% 
+  mutate(age = if_else(age > 60, "high", if_else(age > 30, "mid", "low")))
+
+#fxtables
+fxtable(bank2, "age","deposit")
+fxtable(bank2, "job", "deposit")
+fxtable(bank2,"marital","deposit")
+fxtable(bank2,"education", "deposit")
+fxtable(bank2,"default","deposit")
+fxtable(bank2,"housing","deposit")
+fxtable(bank2,"loan","deposit")
+fxtable(bank2,"contact","deposit")
+fxtable(bank2,"month","deposit")
+fxtable(bank2,"day_of_week","deposit")
+fxtable(bank2,"campaign","deposit")
+fxtable(bank2, "previous", "deposit")
+fxtable(bank2, "poutcome","deposit")
+fxtable(bank2,"pdays_d","deposit")
+
+
+# DATA ADJUSTMENT -----
 #filtered out 
-bank_data = bank_data %>% 
+bank <- bank %>% 
   filter(job != "unknown") %>% 
   filter(marital !="unkown") %>%
-  filter(education !="illiterate") %>% 
-  filter(campaign<=10) %>% 
+  filter(education !="illiterate")
+
+bank2 <- bank2 %>% 
   mutate(pdays_d=if_else(pdays==999, "0","1")) %>% 
   select(-pdays)
 
-
-fxtable(bbank2,"pdays_d","deposit")
-
+tally(~bank2$campaign)
 
 
 
-prop_row = fun_crosstable(bank_data, "campaign", "y")$prop.row %>% 
-  as.data.frame() %>% 
-  filter(y == 1)
-
-prop_row %>% 
-  ggplot() +
-  aes(x = x,
-      y = Freq) +
-  geom_point() +
-  geom_hline(yintercept = 0.085, 
-             col = "red")
-
-
-df_new['campaign_buckets'] = pd.qcut(df_new['campaign_cleaned'], 20, labels=False, duplicates = 'drop')
-
-#group by 'balance_buckets' and find average campaign outcome per balance bucket
-mean_campaign = df_new.groupby(['campaign_buckets'])['deposit_bool'].mean()
-
-#plot average campaign outcome per bucket 
-plt.plot(mean_campaign.index, mean_campaign.values)
-plt.title('Mean % subscription depending on number of contacts')
-plt.xlabel('number of contacts bucket')
-plt.ylabel('% subscription')
-plt.show()
 
 
 
+
+
+
+
+# LOGISTIC -----
+bank3 <- bank
+bank3$loan <- NULL
+bank3$nr.employed <- NULL
+
+bank3$deposit <- (as.numeric(bank3$deposit) -1)
+
+xtabs(~bank3$deposit)
+
+set.seed(343)
+ind = createDataPartition(bank3$deposit,
+                          times = 1,
+                          p = 0.75,
+                          list = F)
+bank3_train = bank3[ind, ]
+bank3_test = bank3[-ind, ]
+
+b_mod <- glm(deposit ~ ., family="binomial", data=bank3_train)
+summary(b_mod)
+b_modpred = predict(b_mod, bank3_test, type = "response")
+
+bpred <- ifelse(b_modpred<0.5, 1, 0)
+
+table(y=bank3_test$deposit, yhat=bpred)
+confusionMatrix(data=factor(bpred), reference = factor(bank3_test$deposit))
+
+b_mod2 <- glm(deposit~.,family="binomial", data=bank3)
+car::vif(b_mod2)
+tally(~bank3$housing)
+predicted.data <- data.frame(
+  probability.of.dep=b_mod2$fitted.values,
+  dep=bank3$deposit)
+
+predicted.data <- predicted.data[
+  order(predicted.data$probability.of.dep, decreasing=FALSE),]
+predicted.data$rank <- 1:nrow(predicted.data)
+
+#Plotting Predicted Probability 
+ggplot(data=predicted.data, aes(x=rank, y=probability.of.dep)) +
+  geom_point(aes(color=dep), size=3, alpha=0.8) +
+  xlab("Index") +
+  ylab("Predicted probability of Deposit")
+
+# RANDOM FOREST -----
+n = nrow(bank)
+n_train = floor(0.8*n)
+n_test = n - n_train
+train_cases = sample.int(n, size=n_train, replace=FALSE)
+y_all = bank$deposit
+x_all = model.matrix(~age+job+marital+education+housing+loan+contact+month+day_of_week
+                     +campaign+pdays+previous+poutcome+emp.var.rate+cons.price.idx+cons.conf.idx
+                     +euribor3m+nr.employed, data=bank)
+
+y_train = y_all[train_cases]
+x_train = x_all[train_cases,]
+
+y_test = y_all[-train_cases]
+x_test = x_all[-train_cases,]
+
+bank_train = bank[train_cases,]
+bank_test = bank[-train_cases,]
+
+forest1 = randomForest(deposit ~ ., data=bank_train)
+
+yhat_test = predict(forest1, bank_test)
+
+plot(yhat_test, y_test)
+forest1$predicted
+?randomForest
+
+# performance as a function of iteration number
+plot(forest1)
+
+# a variable importance plot: how much SSE decreases from including each var
+varImpPlot(forest1)
+table(yhat_test,y_test)
+confusionMatrix(yhat_test,y_test)
+
+
+p1 = pdp::partial(forest1, pred.var = 'job')
+p1
+plot(p1)
+
+
+
+
+fun_cut_predict = function(score, cut) {
+  # score: predicted scores
+  # cut: threshold for classification
+  
+  classes = score
+  classes[classes > cut] = 1
+  classes[classes <= cut] = 0
+  classes = as.factor(classes)
+  
+  return(classes)  
+}
+
+library(ROCR)
+
+
+b_mod
+b_modprobs <- predict(b_mod, bank3_test)
+
+
+prediction(b_modprobs, bank3_test$deposit, type="probs")
+
+
+
+
+
+
+cutpointr(data=bank, b_modprobs, deposit)
+
+
+library(cutpointr)
+?cutpointr
+
+optimal_cutpoint <- optimal.cutpoints(
+  X = "score",
+  status = "true",
+  tag.healthy = "No",
+  methods = "MaxSpSe",
+  data = data.frame(score = b_modpred
+                    , true = bank3_test$deposit),
+  control = control.cutpoints()
+)
+optimal_cutpoint <- optimal_cutpoint$MaxSpSe$Global$optimal.cutoff$cutoff[1]
 
 
 
