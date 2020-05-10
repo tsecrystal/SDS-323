@@ -159,7 +159,7 @@ X_train = X_NB[train_set,]
 # Notice the smoothing (pseudo-count) to the training matrix
 # this ensures we don't have zero-probability events
 ok <- sapply(X_train, is.numeric)
-X_train<-replace(X_train, ok, +1/D)
+X_train<-replace(X_train, ok, X_train+1/D)
 
 y_train = y_NB[train_set]
 X_test = X_NB[test_set,]
