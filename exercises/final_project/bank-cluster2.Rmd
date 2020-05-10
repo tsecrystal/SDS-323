@@ -141,12 +141,13 @@ bank_kmeans$size
 ```{r}
 bank <- mutate(bank,y=ifelse(bank$y == "yes", 1, 0))
 bank_dum <- fastDummies::dummy_cols(bank,
-                                     remove_selected_columns = TRUE)
+                                    remove_selected_columns = TRUE)
+
 N = nrow(bank_dum)
 D = ncol(bank_dum)
 # First split into a training and set set
 X_NB = within(bank_dum, rm(y))  #feature matrix
-y_NB = 0+{bank_dum$y == 'yes'}  # target variable
+y_NB = 0+{bank_dum$y == 1}  # target variable
 
 train_frac = 0.8
 train_set = sort(sample.int(N, floor(train_frac*N)))
