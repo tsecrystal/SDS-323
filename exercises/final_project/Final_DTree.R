@@ -9,7 +9,7 @@ bank10 = read_delim("~/Desktop/SDS 323/final/data/bank-additional.csv", delim = 
 
 bank <- bank %>% replace_with_na_all(condition = ~.x == "unknown")
 
-bank <- select(bank, -default, -nr.employed, -loan )
+bank <- select(bank, -default, -nr.employed, -loan, -duration )
 bank = arrange(bank, y)
 N = nrow(bank)
 
