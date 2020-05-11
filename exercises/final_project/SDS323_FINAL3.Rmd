@@ -1,0 +1,545 @@
+---
+title: "SDS323_FINAL2"
+author: "Kyle Carter, Crystal Tse, Jinfang Yan"
+date: "5/11/2020"
+output: word_document
+always_allow_html: true
+---
+
+```{r setup, include = FALSE, message = FALSE}
+
+# knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo=FALSE, cache = TRUE,autodep = TRUE ,cache.comments = FALSE, message = FALSE, warning = FALSE)
+```
+
+# Bank Marketing
+
+
+### Abstract
+In this analysis, we seek to discover what would make marketing campaigns for a Portuguese bank’s term deposit offering more effective during the 2008 - 2013 recession. We use logistic regression, decision tree, random forest, naive Bayes, and hierarchical clustering machine learning models to determine the most useful variables in predicting if a contact will subscribe to a term deposit. We analyzed a large dataset of 41,188 observations and 21 features that included demographic information on the bank client, the history of contact with the client, and macroeconomic indicators. Due to an imbalanced data set, we rely on AUC (area under the curve) as our evaluating metric and find that the logistic regression model was the most effective when cross validated on a test set. The random forest, when validated, was close to the logistic model. Our most important recommendations include: contact people who were called during the previous campaign, limit the number of calls during a campaign, contact retirees and students, spread the volume of calls over the full year, and be vigilant about macroeconomic trends such as the Euribor rate and consumer confidence index.
+
+
+### Introduction
+We want to predict not only if a customer will deposit at the bank, but what potential actionable strategies the bank can undertake to attract a larger number of customers in its marketing campaigns. Often, multiple phone calls to the same client were required to assess if the client would subscribe to the product of a bank term deposit or not. The goal is to conserve resources by preventing calling people who are not likely to be interested in term deposits, and instead find a more receptive audience.
+
+The data contains 41,188 observations from telemarketing campaigns of a Portuguese banking institution promoting term deposits in the period 2008 - 2013, as Portugal was experiencing a financial crisis. In 2008, Portugal plunged into the international Great Recession, and 2010 - 2014 was the most challenging part of the financial crisis, characterized by an international bailout and austerity by the government. Thus, it is worth noting that this data does not reflect an economy in steady state and is more reflective of saving habits in times of economic hardship.
+
+A term deposit, or time deposit, is an interest-bearing bank account with a predetermined date of maturity that generally offers a greater rate of return than savings accounts.  The dataset includes 21 attributes, including a binary variable y that indicates whether the client subscribed to the deposit or not; the contact communication type; various traits about the potential customer such as age, job, education level, engagement in a housing or personal loan, and history of contact with the client; and various measures of the health of the economy such as the consumer confidence index.
+
+This analysis has key implications for understanding factors that affect individual decision-making at both the personal and macro level. Understanding market segmentation and socioeconomic background indicators of what makes certain people more likely to become customers has tangible benefits for the bank, but it can also have higher-level implications for macroeconomists seeking to understand the impact their policies may have on aggregate saving, especially in times of economic hardship like Portugal was experiencing at the time.
+
+This data set presents several problems, which we have tried our best to deal with reasonably. The first is that it is imbalanced; only about 11% of the observations accepted a term deposit. We have tried to alleviate this issue primarily by choosing tree-based methods, which implicitly look at both classes via its splitting rules. Also, when we evaluated our models on test sets, we largely ignored accuracy, since it scores the overall class distribution, and focused on sensitivity and specificity. Therefore, we valued the ROC and AUC for validation since they incorporate both metrics. The second is that several variables have many unknown values. We purged unknown values from the data set after thoroughly examining each variable, reducing our data set to about 38,200 observations. However, in the future it would be worth revisiting with advanced methods of imputation, which come with their own drawbacks.
+
+To understand what might cause a person to be more likely to subscribe to a bank term deposit, several methods were considered after data preprocessing. A few duplicate rows were removed, and while there were no missing values, a large fraction of observations had “unknown” values. It was also necessary to remove the “duration” variable, or the measure of the length of the last phone call in seconds. This is in contrast with the original research paper, which preserved the duration variable (Moro et al., 2014). However, the duration of the last phone call is highly correlated with the dependent variable of subscription to a term deposit. Clearly, if the customer was completely unreceptive to telemarketing and a deposit subscription, then the duration of the phone call would be 0. Furthermore, understanding duration does not yield actionable insights, since the bank cannot target people if duration is an unknown before contacting them. For this reason, the data preprocessing diverges from previous literature.
+
+Other variables were also determined to have high multicollinearity with each other, leading to an unstable model if kept in the analysis. The variables “pdays,” “nr.employed,” and “loan” were all highly correlated with various other indicators of the history of contact with the customer, macroeconomic indicators, and personal attributes of the client (Fig. 1). In addition, observations with unknown marital status and job type were removed, and the variable “default” added to noise since only 3 observations had credit in default. By removing these highly correlated or noisy predictors, the model should be able to more closely find the relationships between the feature variables and obtain more reliable results.
+
+
+
+```{r echo=FALSE, include=FALSE}
+packs <- c("tidyverse","tidyr","corrplot","caret","cluster","mosaic","glmnet","gamlr","dplyr","lubridate",
+           "dendextend","kableExtra","ggcorrplot","mosaic","psych","gridExtra","LICORS","forcats","naniar",
+           "randomForest","pdp","gmodels","ROCR", "yardstick","funModeling","lime","recipes","rsample",
+           "ggthemes","rpart","rpart.plot","ggpubr","ggplot2","RColorBrewer","knitr","class","ClustOfVar",
+           "fastDummies","e1071")
+lapply(packs, library, character.only = TRUE)
+
+#big bank data set
+bank <- read.csv("bank-additional-full.csv",
+                    header = TRUE, sep =";")
+
+sum(is.na.data.frame(bank))
+bank <- bank %>% dplyr::rename("deposit"="y")
+bank <- bank[!duplicated(bank), ]
+bank$duration <- NULL
+bank$default <- NULL
+
+bank$deposit <- factor(bank$deposit)
+xtabs(~bank$deposit)
+month_recode = c("mar" = "(03)mar",
+                 "apr" = "(04)apr",
+                 "may" = "(05)may",
+                 "jun" = "(06)jun",
+                 "jul" = "(07)jul",
+                 "aug" = "(08)aug",
+                 "sep" = "(09)sep",
+                 "oct" = "(10)oct",
+                 "nov" = "(11)nov",
+                 "dec" = "(12)dec")
+
+bank = bank %>% 
+  mutate(month = recode(month, !!!month_recode))
+
+day_recode = c("mon" = "(01)mon","tue" = "(02)tue","wed" = "(03)wed","thu" = "(04)thu","fri" = "(05)fri")
+
+bank = bank %>% 
+  mutate(day_of_week = recode(day_of_week, !!!day_recode))
+
+set.seed(512)
+```
+
+```{r echo=FALSE, include=FALSE}
+fxtable = function(df, var1, var2){
+  # df: dataframe containing both vars
+  # var1, var2: columns to cross together.
+  CrossTable(df[, var1], df[, var2],
+             prop.r = TRUE,
+             prop.c = FALSE,
+             prop.t = FALSE,
+             prop.chisq = FALSE,
+             dnn = c(var1, var2))}
+
+bank2 <- bank %>% 
+  mutate(age = if_else(age > 60, "high", if_else(age > 30, "mid", "low")))
+
+#fxtables
+fxtable(bank2, "age","deposit")
+fxtable(bank2, "job", "deposit")
+fxtable(bank2,"marital","deposit")
+fxtable(bank2,"education", "deposit")
+fxtable(bank2,"housing","deposit")
+fxtable(bank2,"loan","deposit")
+fxtable(bank2,"contact","deposit")
+fxtable(bank2,"month","deposit")
+fxtable(bank2,"day_of_week","deposit")
+fxtable(bank2,"campaign","deposit")
+fxtable(bank2, "previous", "deposit")
+fxtable(bank2, "poutcome","deposit")
+```
+
+```{r echo=FALSE, include=FALSE}
+# DATA ADJUSTMENT -----
+#filtered out 
+bank <- bank %>% 
+  filter(job != "unknown") %>% 
+  filter(marital !="unkown") %>%
+  filter(education !="illiterate")
+
+bank[bank == "unknown"] <- NA
+bank <-bank[complete.cases(bank), ]
+```
+
+```{r echo=FALSE, include=FALSE}
+# EDA -----
+tab1 <- table(bank$deposit)
+prop.table(tab1)
+
+ggplot(bank, aes(x=fct_rev(fct_infreq((job))))) +
+  geom_bar(fill="darkblue")+
+  coord_flip()+
+  theme_bw()+
+  labs(x="Job Title", y="Count")
+
+ggplot(bank, aes(x=fct_rev(fct_infreq(marital)), fill=deposit)) + 
+  geom_bar() +
+  coord_flip() + 
+  theme_bw() + 
+  labs(x="Marital Status", y="Count")
+
+p1 <- ggplot(bank, aes(x=euribor3m, fill=deposit)) + 
+  geom_histogram(bins=30)+
+  facet_wrap(~deposit)+
+  labs(title="Euribor 3 Month by Deposit")
+
+p2 <- bank %>% 
+  select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed) %>% 
+  cor() %>% 
+  corrplot(method = "number",
+           type = "upper",
+           tl.cex = 0.8,
+           tl.srt = 35,
+           tl.col = "black")
+```
+
+```{r}
+# corplot
+p2
+```
+
+```{r echo=FALSE, include=FALSE}
+# NAIVE BAYES -----
+bank9 <- bank %>% dplyr::rename("y"="deposit")
+
+bank_nb <- bank9 %>% mutate(y=ifelse(bank9$y == "yes", 1, 0))
+bank_dum <- fastDummies::dummy_cols(bank_nb, remove_selected_columns = TRUE)
+#split data into training and test data sets
+indxTrain <- caret::createDataPartition(bank_dum$y,p = 0.75,list = FALSE)
+training <- bank_dum[indxTrain,]
+testing <- bank_dum[-indxTrain,]
+
+# Check dimensions of the split: they should all be exactly the same..?
+prop.table(table(bank_dum$y)) * 100
+prop.table(table(training$y)) * 100
+prop.table(table(testing$y)) * 100
+
+#create objects x which holds the predictor variables and y which holds the response variables
+x <- subset(training, select = -c(y))
+y = training$y
+y <- lapply(y, factor)
+
+y_training<-lapply(training$y, factor)
+y_training<-unlist(y, use.names=FALSE)
+
+y_testing<-lapply(testing$y, factor)
+y_testing<-unlist(y, use.names=FALSE)
+
+# Laplace smoothing
+nb_laplace1 <- naiveBayes(as.factor(y)~., data=training, laplace=1)
+laplace1_pred <- predict(nb_laplace1, testing, type="class")
+laplace2_pred <- predict(nb_laplace1, testing, type = "raw")
+# laplace1_pred
+
+nb_default <- naiveBayes(as.factor(y)~., data=training)
+laplace3_pred <- predict(nb_default, testing, type="class")
+
+# library(naivebayes)
+# nb_laplace4 <- naivebayes::naive_bayes(as.factor(y)~., data=training, laplace=1)
+# laplace4_pred <- naivebayes::predict.naive_bayes(nb_laplace4, testing, type="prob")
+conf_mat = table(laplace1_pred, testing$y,dnn=c("Prediction","Actual"))
+conf_mat
+
+confusionMatrix(laplace1_pred, as.factor(testing$y))
+
+# nb_laplace5 <- naiveBayes(as.factor(y)~., data=training, laplace=1)
+nb_laplace5 <- naiveBayes(x, y_training, laplace=1)
+table(predict(nb_laplace5, x), y_testing)
+
+x_test <- subset(testing, select = -c(y))
+laplace5_pred <- predict(nb_laplace5, x_test, type="raw")
+probs <- predict(nb_laplace5, x_test, type="raw")
+# qplot(x=probs[, "1"], geom="histogram")
+
+# plot ROC curve
+pred <- prediction(probs[, "1"], testing$y)
+perf_nb <- performance(pred, measure='tpr', x.measure='fpr')
+plot(perf_nb)
+auc_perf_nb <- performance(pred, 'auc')
+auc_perf_nb
+nb_auc <- print(auc_perf_nb@y.values)
+```
+
+
+```{r echo=FALSE, include=FALSE}
+## Hierarchical Clustering
+bank7 = bank
+X.quanti <- PCAmixdata::splitmix(bank7)$X.quanti
+X.quali <- PCAmixdata::splitmix(bank7)$X.quali
+#also get rid of identical qualitative categories
+X.quali = mutate(X.quali,
+                housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
+                loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
+# Center and scale the quantitative data
+X.quanti_sc = scale(X.quanti, center=TRUE, scale=TRUE)
+
+tree <- hclustvar(X.quanti_sc, X.quali)
+plot(tree)  # dendrogram
+
+```
+
+```{r echo=FALSE, include=FALSE}
+part<-cutreevar(tree,6) #cut of the tree
+summary(part)
+# Gain in cohesion (in %):  50.26
+res.plot <- plot.clustvar(part) # plot of loadings of each cluster
+res.plot$coord.quanti
+res.plot$coord.levels
+```
+
+```{r echo=FALSE, include=FALSE}
+# convert back to what Kyle had originally
+names(bank)[names(bank) == "y"] <- "deposit"
+```
+
+```{r echo=FALSE, include=FALSE}
+# LOGISTIC -----
+bank3 <- bank
+bank3$loan <- NULL
+bank3$nr.employed <- NULL
+bank3$deposit <- (as.numeric(bank3$deposit) -1)
+xtabs(~bank3$deposit)
+ind = createDataPartition(bank3$deposit,
+                          times = 1,
+                          p = 0.75,
+                          list = F)
+bank3_train = bank3[ind, ]
+bank3_test = bank3[-ind, ]
+
+b_mod0 <- glm(deposit~.,family="binomial", data=bank3)
+car::vif(b_mod0)
+
+b_mod <- glm(deposit ~ ., family="binomial", data=bank3_train)
+summary(b_mod)
+b_modpred = predict(b_mod, bank3_test, type = "response")
+
+bpred <- ifelse(b_modpred>0.5, 1, 0)
+
+table(y=bank3_test$deposit, yhat=bpred)
+confusionMatrix(data=factor(bpred), reference = factor(bank3_test$deposit))
+```
+
+```{r echo=FALSE, include=FALSE}
+# DECISION TREE -----
+bank6 = bank
+bank6 <- select(bank, -nr.employed)
+bank6 = arrange(bank6, deposit)
+N = nrow(bank6)
+bank6 <- bank6 %>% 
+  mutate(age_distri = cut(age, c(20,40, 60, 80, 100)))
+summary(bank6)
+
+train_frac = 0.75
+N_train = floor(train_frac*N)
+N_test = N - N_train
+train_ind = sample.int(N, N_train, replace=FALSE) %>% sort
+load_train = bank6[train_ind,]
+load_test = bank6[-train_ind,]
+
+
+fit.tree <- rpart(deposit~., data = bank6, method = 'class')
+rpart.plot(fit.tree, extra = 106)
+nbig = length(unique(fit.tree$where))
+nbig
+
+plotcp(fit.tree)
+head(fit.tree$cptable, 100)
+prune_1se = function(treefit) {
+  
+  errtab = treefit$cptable
+  xerr = errtab[,"xerror"]
+  jbest = which.min(xerr)
+  err_thresh = xerr[jbest] + errtab[jbest,"xstd"]
+  j1se = min(which(xerr <= err_thresh))
+  cp1se = errtab[j1se,"CP"]
+  prune(treefit, cp1se)
+}
+
+tree_pred <-predict(fit.tree, load_test, type = 'class')
+tree_predict <-predict(fit.tree, load_test, type = 'prob')
+
+dtr_table <- table(load_test$deposit, tree_pred)
+dtr_table
+confusionMatrix(tree_pred, load_test$deposit, positive = 'yes')
+```
+
+```{r echo=FALSE, include=FALSE}
+# RANDOM FOREST -----
+n = nrow(bank)
+n_train = floor(0.75*n)
+n_test = n - n_train
+train_cases = sample.int(n, size=n_train, replace=FALSE)
+y_all = bank$deposit
+x_all = model.matrix(~age+job+marital+education+housing+loan+contact+month+day_of_week
+                     +campaign+previous+poutcome+emp.var.rate+cons.price.idx+cons.conf.idx
+                     +euribor3m+nr.employed, data=bank)
+
+y_train = y_all[train_cases]
+x_train = x_all[train_cases,]
+y_test = y_all[-train_cases]
+x_test = x_all[-train_cases,]
+
+bank_train = bank[train_cases,]
+bank_test = bank[-train_cases,]
+
+forest1 <- randomForest(deposit ~ ., data=bank_train)
+
+yhat_test = predict(forest1, bank_test)
+
+varImpPlot(forest1)
+table(yhat_test,y_test)
+confusionMatrix(yhat_test, y_test, positive="yes")
+```
+
+```{r echo=FALSE, include=FALSE}
+# MODELS FOR ROC -----
+bank1<- bank
+
+train_test_split <- initial_split(bank1, prop = 0.75, strata = 'deposit')
+
+train_test_split
+
+train_data <- training(train_test_split)
+test_data  <- testing(train_test_split)
+
+recipe_obj <- recipe(deposit ~ ., data = train_data) %>% 
+  step_zv(all_predictors()) %>% 
+  step_center(all_numeric()) %>% 
+  step_scale(all_numeric()) %>%
+  prep()
+
+train_data <- bake(recipe_obj, train_data)
+
+test_data  <- bake(recipe_obj, test_data)
+
+train_ctr <- trainControl(method = 'cv', number = 3,
+                          classProbs = TRUE,
+                          summaryFunction = twoClassSummary
+)
+
+Logistic_model <- train(deposit ~ ., data = train_data,
+                        method = 'glm', family = 'binomial',
+                        trControl = train_ctr,
+                        metric = 'ROC'
+)
+
+rf_model <- train(deposit ~ ., data = train_data,
+                  ntree=100,
+                  method = 'rf',
+                  trControl = train_ctr,
+                  tuneLength = 1,
+                  metric = 'ROC'
+)
+
+dtree_model = train(deposit ~ ., 
+                  data=train_data, 
+                  method="rpart", 
+                  trControl = train_ctr,
+                  metric='ROC'
+                  )
+
+pred_logistic <- predict(Logistic_model, newdata = test_data, type = 'prob')
+pred_rf <- predict(rf_model, newdata = test_data, type = 'prob')
+pred_dtr <- predict(dtree_model, newdata=test_data, type='prob')
+
+evaluation_tbl <- tibble(true_class = test_data$deposit,
+                         logistic_dep = pred_logistic$yes,
+                         rf_dep = pred_rf$yes,
+                         dtr_dep=pred_dtr$yes)
+
+options(yardstick.event_first = FALSE)
+```
+
+# Methods
+A main factor in determining what analysis could be performed was the fact that the dataset contained a mix of both quantitative and qualitative variables. Given our goal of predicting a binary outcome of subscription, we want to determine the likelihood that a contact will subscribe and create a threshold that gives a higher overall success rate.
+
+In previous literature (Moro et al., 2014), logistic regression, decision trees, neural networks, and support vector machine methods were used. However, neural networks and support vector machine results are difficult to interpret and were not included in this analysis. Instead, we expanded upon the decision tree’s susceptibility to noise through usage of random forests and tried to replicate the findings from the logistic regression, while also exploring other methods of data analysis.
+
+We first considered simple models for initial prototyping and understanding of the data. Logistic regression is useful for predictive modeling and classification, which aligns with the goal of predicting whether a customer is likely to subscribe to a term deposit or not.
+
+Naive Bayes is another potentially good model in terms of its relative simplicity and interpretability. It is strong in classification and working with categorical variables, which compose about half of this dataset. A particularly useful aspect is that it returns probabilities, which is directly actionable once a threshold is determined for how much the bank is willing to take a chance that the contact may potentially not become a subscriber. However, naive Bayes might oversimplify with its assumptions that each variable is completely independent of the other. We noticed that some of the variables are closely correlated with each other, such as previous, pdays, and poutcome, which all are measures of the history of contact with the potential client, so this is a weakness to keep in mind.
+
+Hierarchical clustering was also considered, as it works well with categorical variables. Although clustering may not be ideal for prediction (classification is better), it is worth noting the importance of variables and how they might be related to each other. It also offers benefits for market segmentation and interpretability, since grouping variables together can help provide insight into higher-level patterns and help segment the market.
+
+Decision trees are useful in that they provide class probabilities which are directly interpretable by the bank in determining potential people to contact. They are also a helpful visual guide. However, trees tend to include noise, which blurs the broader insights that the bank wants to discover about its ideal market for term deposits. This can be resolved by using random forests, which average bootstrapped samples of decision trees to filter out the noise and find the main trend.
+
+One conventional way of navigating the qualitative variables is to convert them to binary values that indicate the existence of an attribute or not, a process known as one-hot encoding. However, this would not be appropriate for certain methods such as K-means clustering, which uses Euclidean distance to measure the relative closeness of different observations. By converting all the categorical variables such as job type to dummy variables, this would make the Euclidean distance a somewhat meaningless measure of similarity since there is no reasonable or intuitive mean for dummy variables. The model would run into the “curse of dimensionality”, where observations become quite similar to each other, which is not ideal for classifying what individuals to market towards. Thus, we decided not to use K-means clustering on this dataset.
+
+To summarize, logistic regression, naive Bayes, hierarchical clustering, decision trees, and random forests were used to analyze the data. K-means clustering was ultimately not used due to the difficulty of handling categorical variables.
+
+# Results
+The random forest model predictably had a high accuracy, due to the imbalanced data set described above. The model produced a high specificity but had a low sensitivity; the model predicts a lot of false negatives but few false positives. However, it should be noted that the random forest model had a higher sensitivity than the logistic regression and decision tree models. This was to be expected but yields tangible results for the bank. This implies that the bank can accurately determine whether a person will subscribe to a term deposit, since there are few false positives, but may also accidentally rule out candidates that are actually likely to subscribe, since the model has a high false negative rate. The bank should not hastily dismiss a potential customer base, so it is worth considering how to reduce this false negative rate.
+
+The variable importance plot for random forests demonstrates that euribor3 is the most important variable, followed closely by age (Fig. 2). 
+
+```{r warning = FALSE}
+# RF var imp plot
+varImpPlot(forest1)
+```
+
+Hierarchical clustering shows the relationships between the different variables. The y-axis, or height of the tree, measures distance between the clusters. For example, job, education, age, and marital status are all equally equidistant from the other variables, which could mean that those personal traits are not as important in determining subscription outcomes since they are in a different branch than the desired “y” (Fig. 3). However, the result that euribor3m, or the Euribor three-month rate, is closely related to the dependent variable is consistent with the result from random forests.
+
+```{r warning = FALSE}
+# dendrogram
+plot(tree) 
+#decision tree
+rpart.plot(fit.tree, extra = 106)
+```
+
+In Figure 4, the Euribor 3-month rate is the predictor variable used for the primary split. When the Euribor 3-month rate is greater than or equal to 1.2, people subscribe to a deposit with predicted probability of 0.07; 90% of people end up not subscribing to a deposit. When the Euribor 3-month rate is lower than 1.2, 10% of people choose to not subscribe to a deposit with a probability of 0.46.  
+
+The second split separates the outcome of the previous marketing campaign. When the previous marketing campaign was a failure or nonexistent, then the predicted probability is 0.37 of subscribing, leading to no deposit. Conversely, a node holding a total 3% of the observations exists when the previous outcome was a success.
+
+# Conclusion
+We found that the logistic regression model performed the best when validated on a test set, followed closely by the random forest model, with AUC scores of 0.79 and 0.78 respectively (Fig. 5). Although every model struggled on this data set, we believe that the flexibility of the logistic model was enough to beat other methods. The random forest is a tree-based method and should be more robust to imbalance; however, it is likely that it overfitted to the training data.
+
+
+```{r echo=FALSE, include=FALSE}
+# PLOTTING ROC -----
+# creating data for ploting ROC curve
+roc_curve_logistic <- roc_curve(evaluation_tbl, true_class, logistic_dep) %>% 
+  mutate(model = 'Logistic')
+
+roc_curve_rf <- roc_curve(evaluation_tbl, true_class, rf_dep) %>% 
+  mutate(model = 'Random Forest')
+
+roc_curve_dtree <- roc_curve(evaluation_tbl, true_class, dtr_dep) %>% 
+  mutate(model = 'Decision Tree')
+
+logistic_auc <- roc_auc(evaluation_tbl, true_class, logistic_dep)
+rf_auc <- roc_auc(evaluation_tbl, true_class, rf_dep)
+dtr_auc <- roc_auc(evaluation_tbl, true_class, dtr_dep)
+
+roc_curve_combine_tbl <- Reduce(rbind, list(roc_curve_logistic, roc_curve_rf, roc_curve_dtree))
+
+rocnroll <- roc_curve_combine_tbl %>% 
+  ggplot(aes(x = 1- specificity, y = sensitivity, color = model))+
+  geom_line(size = 1)+
+  geom_abline(linetype = 'dashed')+
+  theme_bw()+
+  scale_color_tableau()+
+  labs(title = 'ROC Curve Comparison',
+       x = '1 - Specificity',
+       y = 'Sensitivity')
+
+```
+
+```{r}
+#roc plot
+rocnroll
+```
+
+A concern with the random forests model is that the results are not immediately obvious. Faceting on “euribor3m,”  it is evident that those that subscribe to a term deposit actually did so when the interest rate was lower, which is counterintuitive (Fig. 6). One would usually expect a higher savings rate to attract more subscriptions to term deposits, since a higher interest rate is meant to incentivize saving. However, the mean interest rate for instances when there was a successful subscription was 2.12%, as opposed to 3.8% for when the contact did not subscribe. The median had an even more pronounced difference in interest rates, with 1.2% and 4.8% for subscribers and non-subscribers respectively. According to the logistic regression, people are more likely to accept a deposit when the Euribor 3-month rate increases, whereas the decision tree shows the opposite result. This could be inconsequential, as the rates were in flux after the 2008 financial crisis, and the economic state was atypical. Regardless, this information should be taken lightly and data from a more stable time frame should be collected. This finding opposes the obvious incentive of a higher risk-free rate of return. This counterintuitive result coincides with the findings from the original research paper, which explained that decreases in interest rates during and after a downturn are because the government is trying to encourage spending to spur the economy (Moro et al., 2014). However, this has the reverse effect of causing people to want to save even more.
+
+```{r}
+#faceted euribor
+p1
+```
+
+One other way of interpreting this could be that contacts could be more willing to subscribe at a lower rate since it is during a time when the regular savings account rates are correspondingly high (not as high as a term deposit but higher than the inflation rate). The bank could influence more contacts to subscribe when the savings account rate drops too low (e.g., below the inflation rate), because the term deposit rate will be more enticing.
+
+The other economic indicator variables were also affected by the circumstances, so not much stock can be placed upon them. For instance, deposits decrease when the employment variation rate increases, however this is likely confounded by the financial crisis. 
+
+By looking at the variable importance plots and prior analysis, we find a select few variables that determine the likelihood of a potential customer subscribing to a term deposit. Age is a primary indicator, especially those over the age of 60 and under the age of 30. Job type was also important, although it was correlated with age. Still, retirees and students had the highest subscription rates, so perhaps offering a student or retiree bonus to attract these customers would increase the number of deposits. Retirees will have a higher demand for term deposits in order to gain interest through risk-free payments, since they tend to have low risk tolerance. It is the same with students, who face uncertainty and cannot usually afford to have money locked up for long periods. 
+
+There was no significant difference among days of the week (although only weekdays were recorded), a higher proportion of deposits was recorded in the fall. Whether this was done in anticipation of holiday shopping or just a mere coincidence would require more data. May was the month with the most calls, but also the lowest rate of success. The campaign should be spread over the full year to capture any seasonal trends.
+
+The customers who were more educated were more likely to subscribe to a term deposit, however this could be the result of affluence increasing with education level (richer customers need a place to store their money), so any speculation here would be dubious. Customers were slightly more likely to accept a deposit if they already have a housing loan, however this relationship was not statistically significant.
+
+For the campaign itself, previously contacted people were more likely to accept a term deposit, even if they had rejected the deposit. However, people should not be harassed, as the proportion of accepted deposits drops precipitously after 4 calls; the callers should gently remind potential customers, not chase them.
+
+The most pressing issue is the lack of information; there are thousands of unknowns in the data set. It is imperative that the bank collects data reliably so that a more effective model can be constructed. Whether this issue is from lack of survey engagement or from loss of bank data, the quality of data should be prioritized.
+
+By capturing, leveraging, and analyzing massive volumes of data, bank and financial services companies can capitalize on new data-driven business opportunities. Bank and financial services companies will be able to generate insights that create better customer experiences, improve operational efficiency, and drive sales.
+
+# Bibliography
+Moro, S., Cortez, P., & Rita, P. (2014). A data-driven approach to predict the success of bank telemarketing. Decision Support Systems, 62, 22–31. https://doi.org/10.1016/j.dss.2014.03.001
+
+# Appendix
+
+```{r echo=FALSE}
+#faceted euribor
+# p1
+# # corplot
+# p2
+# # RF var imp plot
+# varImpPlot(forest1)
+# # dendrogram
+# plot(tree) 
+# #decision tree
+# rpart.plot(fit.tree, extra = 106)
+# #roc plot
+# rocnroll
+
+#nb CM
+table(predict(nb_laplace5, x), y_testing) 
+  # kable(caption = "Table 1: Naive Bayes Confusion Matrix")%>% kable_styling()
+#logistic CM
+table(yhat=bpred, y=bank3_test$deposit) 
+# %>% kable(caption = "Table 2: Logistic Regression Confusion Matrix")%>% kable_styling()
+#decision tree CM
+table(tree_pred, load_test$deposit) 
+# %>% kable(caption = "Table 3: Decision Tree Confusion Matrix") %>% kable_styling()
+#RF CM
+table(yhat_test,y_test)
+# %>% kable(caption = "Table 4: Random Forest Confusion Matrix") %>% kable_styling
+
+```
