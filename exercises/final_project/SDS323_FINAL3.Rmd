@@ -143,19 +143,20 @@ p1 <- ggplot(bank, aes(x=euribor3m, fill=deposit)) +
   facet_wrap(~deposit)+
   labs(title="Euribor 3 Month by Deposit")
 
-p2 <- bank %>% 
-  select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed) %>% 
-  cor() %>% 
-  corrplot(method = "number",
-           type = "upper",
-           tl.cex = 0.8,
-           tl.srt = 35,
-           tl.col = "black")
+
 ```
 
 ```{r}
 # corplot
-p2
+p2 <- bank %>% 
+  select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed) %>% 
+  cor() %>% 
+  corrplot::corrplot(method = "number",
+           type = "upper",
+           tl.cex = 0.8,
+           tl.srt = 35,
+           tl.col = "black")
+
 ```
 
 ```{r echo=FALSE, include=FALSE}
