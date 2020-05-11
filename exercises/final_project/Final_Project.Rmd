@@ -89,6 +89,98 @@ bank = bank %>%
   mutate(day_of_week = recode(day_of_week, !!!day_recode))
 ```
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+# results='hide' to get rid of text output
+```
+
+
+```{r message = FALSE}
+install.packages(ggthemes)
+install.packages(ggpubr)
+library(mosaic)
+library(tidyverse)
+library(ggthemes)
+library(ggplot2)
+library(RColorBrewer)
+library(glmnet)
+library(gamlr)
+library(dplyr)
+library(pdp)
+library(lubridate)
+library(naniar)
+library(rpart)
+library(gridExtra)
+library(ggpubr)
+
+
+```
+
+```{r message = FALSE}
+
+bank = read_delim("~/Desktop/SDS 323/final/data/bank-additional-full.csv", delim = ";")
+
+
+bank <- bank %>% replace_with_na_all(condition = ~.x == "unknown")
+bank <-bank[complete.cases(bank), ] 
+
+```
+
+```{r}
+bank <- bank %>% 
+  mutate(Outcome = factor(y, levels = c("no","yes"),
+                          labels = c("Not Subscribed", "Subscribed")))
+```
+
+```{r}
+bank <- transform( bank,
+                   job = ordered(job, levels = names( sort(-table(job)))))
+
+
+
+g1 <- ggplot(bank) + 
+  geom_bar(aes(x = job)) +
+  facet_grid(. ~ Outcome) +
+  theme_few()+
+  coord_flip()
+
+```
+
+```{r}
+
+bank <- transform( bank,
+                   month = ordered(month, levels = names( sort(-table(month)))))
+
+g2 <- ggplot(bank) + 
+  geom_bar(aes(x = month)) +
+  facet_grid(. ~ Outcome) +
+  theme_few() +
+  coord_flip()
+```
+
+```{r}
+# Cut age to different 
+bank <- bank %>% 
+  mutate(age_distribution = cut(age, c(20, 30,40, 50, 60, 70, 80, 90)))
+summary(bank)
+
+
+
+g3 <- ggplot(bank) + 
+  geom_bar(aes(x = age_distribution)) +
+  facet_grid(. ~ Outcome) +
+  theme_few() +
+  coord_flip()
+
+
+ggarrange(g1, g2, g3, 
+          labels = c("Job", "Month", "Age"),
+          ncol = 2, nrow = 2)
+
+
+```
+
+
 
 ```{r}
 
