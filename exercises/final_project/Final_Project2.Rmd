@@ -129,8 +129,6 @@ ggplot(bank, aes(x=euribor3m, fill=deposit)) +
   geom_histogram(bins=30)+
   facet_wrap(~deposit)
 
-aggregate(bank[, 18], list(bank$deposit), median)
-
 bank %>% 
   select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed) %>% 
   cor() %>% 
