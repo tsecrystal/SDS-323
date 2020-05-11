@@ -26,7 +26,7 @@ The variable duration was removed from the data set prior to modeling because it
 
 The clients were grouped by contact type (cellular or telephone) to see if this variable was correlated with age. The thinking being that younger people tend to have cellphones and older people tend to have telephones (i.e. landline). While telephone contact type had a slightly higher mean age, there is not enough of a statistically significant difference.
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 packs <- c("tidyverse","tidyr","corrplot","caret","cluster","mosaic","glmnet","gamlr","dplyr","lubridate",
            "dendextend","kableExtra","ggcorrplot","mosaic","psych","gridExtra","LICORS","forcats","naniar",
            "randomForest","pdp","gmodels","ROCR", "yardstick","funModeling","lime","recipes","rsample",
@@ -68,7 +68,7 @@ bank = bank %>%
 set.seed(512)
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 fxtable = function(df, var1, var2){
   # df: dataframe containing both vars
   # var1, var2: columns to cross together.
@@ -97,7 +97,7 @@ fxtable(bank2, "previous", "deposit")
 fxtable(bank2, "poutcome","deposit")
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 # DATA ADJUSTMENT -----
 #filtered out 
 bank <- bank %>% 
@@ -109,7 +109,7 @@ bank[bank == "unknown"] <- NA
 bank <-bank[complete.cases(bank), ]
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 # EDA -----
 tab1 <- table(bank$deposit)
 prop.table(tab1)
@@ -126,11 +126,12 @@ ggplot(bank, aes(x=fct_rev(fct_infreq(marital)), fill=deposit)) +
   theme_bw() + 
   labs(x="Marital Status", y="Count")
 
-ggplot(bank, aes(x=euribor3m, fill=deposit)) + 
+p1 <- ggplot(bank, aes(x=euribor3m, fill=deposit)) + 
   geom_histogram(bins=30)+
-  facet_wrap(~deposit)
+  facet_wrap(~deposit)+
+  labs(title="Euribor 3 Month by Deposit")
 
-bank %>% 
+p2 <- bank %>% 
   select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed) %>% 
   cor() %>% 
   corrplot(method = "number",
@@ -140,7 +141,7 @@ bank %>%
            tl.col = "black")
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 bank9 <- bank %>% dplyr::rename("y"="deposit")
 
 bank_nb <- bank9 %>% mutate(y=ifelse(bank9$y == "yes", 1, 0))
@@ -202,7 +203,7 @@ nb_auc <- print(auc_perf_nb@y.values)
 ```
 
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 ## Hierarchical Clustering
 bank7 = bank
 X.quanti <- PCAmixdata::splitmix(bank7)$X.quanti
@@ -219,7 +220,7 @@ plot(tree)  # dendrogram
 
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 part<-cutreevar(tree,6) #cut of the tree
 summary(part)
 # Gain in cohesion (in %):  50.26
@@ -228,12 +229,12 @@ res.plot$coord.quanti
 res.plot$coord.levels
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 # convert back to what Kyle had originally
 names(bank)[names(bank) == "y"] <- "deposit"
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 # LOGISTIC -----
 bank3 <- bank
 bank3$loan <- NULL
@@ -260,7 +261,7 @@ table(y=bank3_test$deposit, yhat=bpred)
 confusionMatrix(data=factor(bpred), reference = factor(bank3_test$deposit))
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 # DECISION TREE -----
 bank6 = bank
 bank6 <- select(bank, -nr.employed)
@@ -304,7 +305,7 @@ dtr_table
 confusionMatrix(tree_pred, load_test$deposit, positive = 'yes')
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 # RANDOM FOREST -----
 n = nrow(bank)
 n_train = floor(0.75*n)
@@ -332,7 +333,7 @@ table(yhat_test,y_test)
 confusionMatrix(yhat_test, y_test, positive="yes")
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 # MODELS FOR ROC -----
 bank1<- bank
 
@@ -391,7 +392,7 @@ evaluation_tbl <- tibble(true_class = test_data$deposit,
 options(yardstick.event_first = FALSE)
 ```
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 # PLOTTING ROC -----
 # creating data for ploting ROC curve
 roc_curve_logistic <- roc_curve(evaluation_tbl, true_class, logistic_dep) %>% 
@@ -409,7 +410,7 @@ dtr_auc <- roc_auc(evaluation_tbl, true_class, dtr_dep)
 
 roc_curve_combine_tbl <- Reduce(rbind, list(roc_curve_logistic, roc_curve_rf, roc_curve_dtree))
 
-roc_curve_combine_tbl %>% 
+rocnroll <- roc_curve_combine_tbl %>% 
   ggplot(aes(x = 1- specificity, y = sensitivity, color = model))+
   geom_line(size = 1)+
   geom_abline(linetype = 'dashed')+
@@ -419,5 +420,23 @@ roc_curve_combine_tbl %>%
        x = '1 - Specificity',
        y = 'Sensitity')
 
+```
+
+
+# Appendix
+
+```{r echo=FALSE}
+#faceted euribor
+p1
+# corplot
+p2
+# RF var imp plot
+varImpPlot(forest1)
+# dendrogram
+plot(tree) 
+#decision tree
+rpart.plot(fit.tree, extra = 106)
+#roc plot
+rocnroll
 ```
 
