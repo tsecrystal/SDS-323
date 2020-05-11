@@ -1,0 +1,458 @@
+---
+title: "SDS323_FINAL2"
+author: "Kyle Carter, Crystal Tse, Jinfang Yan"
+date: "5/11/2020"
+output: word_document
+always_allow_html: true
+---
+
+```{r setup, include = FALSE, message = FALSE}
+
+# knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo=FALSE, cache = TRUE,autodep = TRUE ,cache.comments = FALSE, message = FALSE, warning = FALSE)
+```
+
+# Bank Marketing
+
+
+### Abstract
+
+
+
+### Introduction
+The data set was found on the UCI machine learning repository. It contains information from phone-based direct marketing campaigns of a Portuguese Bank. The objective of the marketing campaign was for the customer to accept a term deposit. A term deposit is a short-term investment where cash is deposited into an account at a bank, for example a certificate of deposit. The term is fixed, so the investment is locked in for a period of time and cannot be withdrawn early without incurring a penalty. The bank in turn lends this money out to businesses or individuals, and pays the investor interest for the use of their money. The bank values term deposits over savings accounts because in those cases the investor may withdraw at any time, making it difficult for the bank to estimate how much may be lent out at any given time. A term deposit guarantees a generally higher interest rate for the investor in exchange for this illiquidity, and the bank gains the certainty of funds available to be lent out.
+Given individual demographic information as well as macroeconomic economic data, can we predict if a customer will accept a term deposit?
+The variables give basic information about the client such as age, job, marital status, and education; consumer information, including loans and if the client has defaulted; campaign information, with outcomes of previous campaigns and contact type; and economic data, such as unemployment rate, EURIBOR 3 month rates, and consumer conifidence index.
+
+The variable duration was removed from the data set prior to modeling because it is a measure of the last contact duration in seconds. It is highly predictive of the dependent variable, however the duration of a marketing call is not known before the call begins. Furthermore, after the call is over, the outcome is known as well as the duration. This variable is not useful for making predictions and is highly correlated with the outcome variable deposit, so it has been removed. 
+
+
+The clients were grouped by contact type (cellular or telephone) to see if this variable was correlated with age. The thinking being that younger people tend to have cellphones and older people tend to have telephones (i.e. landline). While telephone contact type had a slightly higher mean age, there is not enough of a statistically significant difference.
+
+```{r echo=FALSE, include=FALSE}
+packs <- c("tidyverse","tidyr","corrplot","caret","cluster","mosaic","glmnet","gamlr","dplyr","lubridate",
+           "dendextend","kableExtra","ggcorrplot","mosaic","psych","gridExtra","LICORS","forcats","naniar",
+           "randomForest","pdp","gmodels","ROCR", "yardstick","funModeling","lime","recipes","rsample",
+           "ggthemes","rpart","rpart.plot","ggpubr","ggplot2","RColorBrewer","knitr","class","ClustOfVar",
+           "fastDummies","e1071")
+lapply(packs, library, character.only = TRUE)
+
+#big bank data set
+bank <- read.csv("bank-additional-full.csv",
+                    header = TRUE, sep =";")
+
+sum(is.na.data.frame(bank))
+bank <- bank %>% dplyr::rename("deposit"="y")
+bank <- bank[!duplicated(bank), ]
+bank$duration <- NULL
+bank$default <- NULL
+
+bank$deposit <- factor(bank$deposit)
+xtabs(~bank$deposit)
+month_recode = c("mar" = "(03)mar",
+                 "apr" = "(04)apr",
+                 "may" = "(05)may",
+                 "jun" = "(06)jun",
+                 "jul" = "(07)jul",
+                 "aug" = "(08)aug",
+                 "sep" = "(09)sep",
+                 "oct" = "(10)oct",
+                 "nov" = "(11)nov",
+                 "dec" = "(12)dec")
+
+bank = bank %>% 
+  mutate(month = recode(month, !!!month_recode))
+
+day_recode = c("mon" = "(01)mon","tue" = "(02)tue","wed" = "(03)wed","thu" = "(04)thu","fri" = "(05)fri")
+
+bank = bank %>% 
+  mutate(day_of_week = recode(day_of_week, !!!day_recode))
+
+set.seed(512)
+```
+
+```{r echo=FALSE, include=FALSE}
+fxtable = function(df, var1, var2){
+  # df: dataframe containing both vars
+  # var1, var2: columns to cross together.
+  CrossTable(df[, var1], df[, var2],
+             prop.r = TRUE,
+             prop.c = FALSE,
+             prop.t = FALSE,
+             prop.chisq = FALSE,
+             dnn = c(var1, var2))}
+
+bank2 <- bank %>% 
+  mutate(age = if_else(age > 60, "high", if_else(age > 30, "mid", "low")))
+
+#fxtables
+fxtable(bank2, "age","deposit")
+fxtable(bank2, "job", "deposit")
+fxtable(bank2,"marital","deposit")
+fxtable(bank2,"education", "deposit")
+fxtable(bank2,"housing","deposit")
+fxtable(bank2,"loan","deposit")
+fxtable(bank2,"contact","deposit")
+fxtable(bank2,"month","deposit")
+fxtable(bank2,"day_of_week","deposit")
+fxtable(bank2,"campaign","deposit")
+fxtable(bank2, "previous", "deposit")
+fxtable(bank2, "poutcome","deposit")
+```
+
+```{r echo=FALSE, include=FALSE}
+# DATA ADJUSTMENT -----
+#filtered out 
+bank <- bank %>% 
+  filter(job != "unknown") %>% 
+  filter(marital !="unkown") %>%
+  filter(education !="illiterate")
+
+bank[bank == "unknown"] <- NA
+bank <-bank[complete.cases(bank), ]
+```
+
+```{r echo=FALSE, include=FALSE}
+# EDA -----
+tab1 <- table(bank$deposit)
+prop.table(tab1)
+
+ggplot(bank, aes(x=fct_rev(fct_infreq((job))))) +
+  geom_bar(fill="darkblue")+
+  coord_flip()+
+  theme_bw()+
+  labs(x="Job Title", y="Count")
+
+ggplot(bank, aes(x=fct_rev(fct_infreq(marital)), fill=deposit)) + 
+  geom_bar() +
+  coord_flip() + 
+  theme_bw() + 
+  labs(x="Marital Status", y="Count")
+
+p1 <- ggplot(bank, aes(x=euribor3m, fill=deposit)) + 
+  geom_histogram(bins=30)+
+  facet_wrap(~deposit)+
+  labs(title="Euribor 3 Month by Deposit")
+
+p2 <- bank %>% 
+  select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed) %>% 
+  cor() %>% 
+  corrplot(method = "number",
+           type = "upper",
+           tl.cex = 0.8,
+           tl.srt = 35,
+           tl.col = "black")
+```
+
+```{r echo=FALSE, include=FALSE}
+# NAIVE BAYES -----
+bank9 <- bank %>% dplyr::rename("y"="deposit")
+
+bank_nb <- bank9 %>% mutate(y=ifelse(bank9$y == "yes", 1, 0))
+bank_dum <- fastDummies::dummy_cols(bank_nb, remove_selected_columns = TRUE)
+#split data into training and test data sets
+indxTrain <- caret::createDataPartition(bank_dum$y,p = 0.75,list = FALSE)
+training <- bank_dum[indxTrain,]
+testing <- bank_dum[-indxTrain,]
+
+# Check dimensions of the split: they should all be exactly the same..?
+prop.table(table(bank_dum$y)) * 100
+prop.table(table(training$y)) * 100
+prop.table(table(testing$y)) * 100
+
+#create objects x which holds the predictor variables and y which holds the response variables
+x <- subset(training, select = -c(y))
+y = training$y
+y <- lapply(y, factor)
+
+y_training<-lapply(training$y, factor)
+y_training<-unlist(y, use.names=FALSE)
+
+y_testing<-lapply(testing$y, factor)
+y_testing<-unlist(y, use.names=FALSE)
+
+# Laplace smoothing
+nb_laplace1 <- naiveBayes(as.factor(y)~., data=training, laplace=1)
+laplace1_pred <- predict(nb_laplace1, testing, type="class")
+laplace2_pred <- predict(nb_laplace1, testing, type = "raw")
+# laplace1_pred
+
+nb_default <- naiveBayes(as.factor(y)~., data=training)
+laplace3_pred <- predict(nb_default, testing, type="class")
+
+# library(naivebayes)
+# nb_laplace4 <- naivebayes::naive_bayes(as.factor(y)~., data=training, laplace=1)
+# laplace4_pred <- naivebayes::predict.naive_bayes(nb_laplace4, testing, type="prob")
+conf_mat = table(laplace1_pred, testing$y,dnn=c("Prediction","Actual"))
+conf_mat
+
+confusionMatrix(laplace1_pred, as.factor(testing$y))
+
+# nb_laplace5 <- naiveBayes(as.factor(y)~., data=training, laplace=1)
+nb_laplace5 <- naiveBayes(x, y_training, laplace=1)
+table(predict(nb_laplace5, x), y_testing)
+
+x_test <- subset(testing, select = -c(y))
+laplace5_pred <- predict(nb_laplace5, x_test, type="raw")
+probs <- predict(nb_laplace5, x_test, type="raw")
+# qplot(x=probs[, "1"], geom="histogram")
+
+# plot ROC curve
+pred <- prediction(probs[, "1"], testing$y)
+perf_nb <- performance(pred, measure='tpr', x.measure='fpr')
+plot(perf_nb)
+auc_perf_nb <- performance(pred, 'auc')
+auc_perf_nb
+nb_auc <- print(auc_perf_nb@y.values)
+```
+
+
+```{r echo=FALSE, include=FALSE}
+## Hierarchical Clustering
+bank7 = bank
+X.quanti <- PCAmixdata::splitmix(bank7)$X.quanti
+X.quali <- PCAmixdata::splitmix(bank7)$X.quali
+#also get rid of identical qualitative categories
+X.quali = mutate(X.quali,
+                housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
+                loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
+# Center and scale the quantitative data
+X.quanti_sc = scale(X.quanti, center=TRUE, scale=TRUE)
+
+tree <- hclustvar(X.quanti_sc, X.quali)
+plot(tree)  # dendrogram
+
+```
+
+```{r echo=FALSE, include=FALSE}
+part<-cutreevar(tree,6) #cut of the tree
+summary(part)
+# Gain in cohesion (in %):  50.26
+res.plot <- plot.clustvar(part) # plot of loadings of each cluster
+res.plot$coord.quanti
+res.plot$coord.levels
+```
+
+```{r echo=FALSE, include=FALSE}
+# convert back to what Kyle had originally
+names(bank)[names(bank) == "y"] <- "deposit"
+```
+
+```{r echo=FALSE, include=FALSE}
+# LOGISTIC -----
+bank3 <- bank
+bank3$loan <- NULL
+bank3$nr.employed <- NULL
+bank3$deposit <- (as.numeric(bank3$deposit) -1)
+xtabs(~bank3$deposit)
+ind = createDataPartition(bank3$deposit,
+                          times = 1,
+                          p = 0.75,
+                          list = F)
+bank3_train = bank3[ind, ]
+bank3_test = bank3[-ind, ]
+
+b_mod0 <- glm(deposit~.,family="binomial", data=bank3)
+car::vif(b_mod0)
+
+b_mod <- glm(deposit ~ ., family="binomial", data=bank3_train)
+summary(b_mod)
+b_modpred = predict(b_mod, bank3_test, type = "response")
+
+bpred <- ifelse(b_modpred>0.5, 1, 0)
+
+table(y=bank3_test$deposit, yhat=bpred)
+confusionMatrix(data=factor(bpred), reference = factor(bank3_test$deposit))
+```
+
+```{r echo=FALSE, include=FALSE}
+# DECISION TREE -----
+bank6 = bank
+bank6 <- select(bank, -nr.employed)
+bank6 = arrange(bank6, deposit)
+N = nrow(bank6)
+bank6 <- bank6 %>% 
+  mutate(age_distri = cut(age, c(20,40, 60, 80, 100)))
+summary(bank6)
+
+train_frac = 0.75
+N_train = floor(train_frac*N)
+N_test = N - N_train
+train_ind = sample.int(N, N_train, replace=FALSE) %>% sort
+load_train = bank6[train_ind,]
+load_test = bank6[-train_ind,]
+
+
+fit.tree <- rpart(deposit~., data = bank6, method = 'class')
+rpart.plot(fit.tree, extra = 106)
+nbig = length(unique(fit.tree$where))
+nbig
+
+plotcp(fit.tree)
+head(fit.tree$cptable, 100)
+prune_1se = function(treefit) {
+  
+  errtab = treefit$cptable
+  xerr = errtab[,"xerror"]
+  jbest = which.min(xerr)
+  err_thresh = xerr[jbest] + errtab[jbest,"xstd"]
+  j1se = min(which(xerr <= err_thresh))
+  cp1se = errtab[j1se,"CP"]
+  prune(treefit, cp1se)
+}
+
+tree_pred <-predict(fit.tree, load_test, type = 'class')
+tree_predict <-predict(fit.tree, load_test, type = 'prob')
+
+dtr_table <- table(load_test$deposit, tree_pred)
+dtr_table
+confusionMatrix(tree_pred, load_test$deposit, positive = 'yes')
+```
+
+```{r echo=FALSE, include=FALSE}
+# RANDOM FOREST -----
+n = nrow(bank)
+n_train = floor(0.75*n)
+n_test = n - n_train
+train_cases = sample.int(n, size=n_train, replace=FALSE)
+y_all = bank$deposit
+x_all = model.matrix(~age+job+marital+education+housing+loan+contact+month+day_of_week
+                     +campaign+previous+poutcome+emp.var.rate+cons.price.idx+cons.conf.idx
+                     +euribor3m+nr.employed, data=bank)
+
+y_train = y_all[train_cases]
+x_train = x_all[train_cases,]
+y_test = y_all[-train_cases]
+x_test = x_all[-train_cases,]
+
+bank_train = bank[train_cases,]
+bank_test = bank[-train_cases,]
+
+forest1 <- randomForest(deposit ~ ., data=bank_train)
+
+yhat_test = predict(forest1, bank_test)
+
+varImpPlot(forest1)
+table(yhat_test,y_test)
+confusionMatrix(yhat_test, y_test, positive="yes")
+```
+
+```{r echo=FALSE, include=FALSE}
+# MODELS FOR ROC -----
+bank1<- bank
+
+train_test_split <- initial_split(bank1, prop = 0.75, strata = 'deposit')
+
+train_test_split
+
+train_data <- training(train_test_split)
+test_data  <- testing(train_test_split)
+
+recipe_obj <- recipe(deposit ~ ., data = train_data) %>% 
+  step_zv(all_predictors()) %>% 
+  step_center(all_numeric()) %>% 
+  step_scale(all_numeric()) %>%
+  prep()
+
+train_data <- bake(recipe_obj, train_data)
+
+test_data  <- bake(recipe_obj, test_data)
+
+train_ctr <- trainControl(method = 'cv', number = 3,
+                          classProbs = TRUE,
+                          summaryFunction = twoClassSummary
+)
+
+Logistic_model <- train(deposit ~ ., data = train_data,
+                        method = 'glm', family = 'binomial',
+                        trControl = train_ctr,
+                        metric = 'ROC'
+)
+
+rf_model <- train(deposit ~ ., data = train_data,
+                  ntree=100,
+                  method = 'rf',
+                  trControl = train_ctr,
+                  tuneLength = 1,
+                  metric = 'ROC'
+)
+
+dtree_model = train(deposit ~ ., 
+                  data=train_data, 
+                  method="rpart", 
+                  trControl = train_ctr,
+                  metric='ROC'
+                  )
+
+pred_logistic <- predict(Logistic_model, newdata = test_data, type = 'prob')
+pred_rf <- predict(rf_model, newdata = test_data, type = 'prob')
+pred_dtr <- predict(dtree_model, newdata=test_data, type='prob')
+
+evaluation_tbl <- tibble(true_class = test_data$deposit,
+                         logistic_dep = pred_logistic$yes,
+                         rf_dep = pred_rf$yes,
+                         dtr_dep=pred_dtr$yes)
+
+options(yardstick.event_first = FALSE)
+```
+
+```{r echo=FALSE, include=FALSE}
+# PLOTTING ROC -----
+# creating data for ploting ROC curve
+roc_curve_logistic <- roc_curve(evaluation_tbl, true_class, logistic_dep) %>% 
+  mutate(model = 'Logistic')
+
+roc_curve_rf <- roc_curve(evaluation_tbl, true_class, rf_dep) %>% 
+  mutate(model = 'Random Forest')
+
+roc_curve_dtree <- roc_curve(evaluation_tbl, true_class, dtr_dep) %>% 
+  mutate(model = 'Decision Tree')
+
+logistic_auc <- roc_auc(evaluation_tbl, true_class, logistic_dep)
+rf_auc <- roc_auc(evaluation_tbl, true_class, rf_dep)
+dtr_auc <- roc_auc(evaluation_tbl, true_class, dtr_dep)
+
+roc_curve_combine_tbl <- Reduce(rbind, list(roc_curve_logistic, roc_curve_rf, roc_curve_dtree))
+
+rocnroll <- roc_curve_combine_tbl %>% 
+  ggplot(aes(x = 1- specificity, y = sensitivity, color = model))+
+  geom_line(size = 1)+
+  geom_abline(linetype = 'dashed')+
+  theme_bw()+
+  scale_color_tableau()+
+  labs(title = 'ROC Curve Comparison',
+       x = '1 - Specificity',
+       y = 'Sensitivity')
+
+```
+
+
+# Appendix
+
+```{r echo=FALSE}
+#faceted euribor
+p1
+# corplot
+p2
+# RF var imp plot
+varImpPlot(forest1)
+# dendrogram
+plot(tree) 
+#decision tree
+rpart.plot(fit.tree, extra = 106)
+#roc plot
+rocnroll
+#nb CM
+table(predict(nb_laplace5, x), y_testing) 
+  # kable(caption = "Table 1: Naive Bayes Confusion Matrix")%>% kable_styling()
+#logistic CM
+table(yhat=bpred, y=bank3_test$deposit) 
+# %>% kable(caption = "Table 2: Logistic Regression Confusion Matrix")%>% kable_styling()
+#decision tree CM
+table(tree_pred, load_test$deposit) 
+# %>% kable(caption = "Table 3: Decision Tree Confusion Matrix") %>% kable_styling()
+#RF CM
+table(yhat_test,y_test)
+# %>% kable(caption = "Table 4: Random Forest Confusion Matrix") %>% kable_styling
+
+```
