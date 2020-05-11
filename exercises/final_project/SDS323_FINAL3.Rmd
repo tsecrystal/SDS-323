@@ -9,7 +9,9 @@ always_allow_html: true
 ```{r setup, include = FALSE, message = FALSE}
 
 # knitr::opts_chunk$set(echo = FALSE)
-knitr::opts_chunk$set(echo=FALSE, cache = TRUE,autodep = TRUE ,cache.comments = FALSE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(echo=FALSE,
+                      # cache = TRUE,autodep = TRUE ,cache.comments = FALSE,
+                      message = FALSE, warning = FALSE)
 ```
 
 # Bank Marketing
