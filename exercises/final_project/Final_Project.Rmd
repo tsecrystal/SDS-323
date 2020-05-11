@@ -1,0 +1,403 @@
+---
+title: "Final_Project"
+author: "Crystal Tse, Kyle Carter, Jinfang Yan"
+date: "5/10/2020"
+output: word_document
+---
+# Abstract
+
+
+
+
+
+# Introduction
+We want to predict not only if a customer will deposit at the bank, but what potential actionable strategies the bank can undertake to attract a larger number of customers in its marketing campaigns. Often, multiple phone calls to the same client were required to assess if the client would subscribe to the product of a bank term deposit or not. The goal is to conserve resources by preventing calling people who are not likely to be interested in term deposits, and instead find a more receptive audience.
+
+The data contains 41,188 observations from telemarketing campaigns of a Portuguese banking institution promoting term deposits in the period 2008 - 2013, as Portugal was experiencing a financial crisis. In 2008, Portugal plunged into the international Great Recession, and 2010 - 2014 was the most challenging part of the financial crisis, characterized by an international bailout and austerity by the government. Thus, it is worth noting that this data does not reflect an economy in steady state, and is more reflective of saving habits in times of economic hardship.
+
+A term deposit, or time deposit, is an interest-bearing bank account with a predetermined date of maturity that generally offers a greater rate of return than savings accounts.  The dataset includes 21 attributes, including a binary variable y that indicates whether the client subscribed to the deposit or not; the contact communication type; various traits about the potential customer such as his/her age, job, education level, engagement in a housing or personal loan, and history of contact with the client; and various measures of the health of the economy such as the consumer confidence index.
+
+This analysis has key implications for understanding factors that affect individual decision-making at both the personal and macro level. Understanding market segmentation and socioeconomic background indicators of what makes certain people more likely to become customers has tangible benefits for the bank, but it can also have higher-level implications for macroeconomists seeking to understand the impact their policies may have on aggregate saving, especially in times of economic hardship like Portugal was experiencing at the time.
+
+This data set presents several problems, which we have tried our best to deal with reasonably. The first is that it is imbalanced; only about 11% of the observations accepted a term deposit. We have tried to alleviate this issue primarily by choosing tree-based methods, which implicitly looks at both classes via its splitting rules. Also, when we evaluated our models on test sets, we largely ignored accuracy, since it scores the overall class distribution, and looked specifically at sensitivity and specificity. Therefore, we valued the ROC for validation since it incorporates both of these metrics. The second is that several variables have many unknown values. We have preserved them here, since deleting them would remove a large portion of the data set. However, in the future it would be worth revisiting with advanced methods of imputation, which come with their own drawbacks.
+
+To understand what might cause a person to be more likely to subscribe to a bank term deposit, several methods were considered after data preprocessing. A few duplicate rows were removed, and while there were no missing values, a large fraction of observations had “unknown” values. It was also necessary to remove the “duration” variable, or the measure of the length of the last phone call in seconds. This is in contrast with the original research paper, which preserved the duration variable (Moro et al., 2014). However, the duration of the last phone call is highly correlated with the dependent variable of subscription to a term deposit. Clearly, if the customer was completely unreceptive to telemarketing and a deposit subscription, then the duration of the phone call would be 0. Furthermore, understanding duration does not yield actionable insights, since the bank cannot target people if duration is an unknown before contacting them. For this reason, the data preprocessing diverges from previous literature.
+
+The clients were grouped by contact type (cellular or telephone) to see if this variable was correlated with age. The rationale behind this was that younger people tend to have cellphones and older people tend to have telephones (i.e. landlines). While calls with the telephone contact type had a slightly higher mean age, there is not a statistically significant difference.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r message= FALSE}
+library(ggmosaic) # Mosaic plot with ggplot [geom_mosaic()]
+library(ggpubr) # Arranging ggplots together [ggarrange()]
+library(cowplot) # Arranging ggplots together [plot_grid()]
+library(ROCR) # Model performance [performance(), prediction()]
+library(plotROC) # ROC Curve with ggplot [geom_roc()]
+library(pROC) # AUC computation [auc()]
+library(PRROC) # AUPR computation [pr.curve()]
+library(rpart) # Decision trees [rpart(), plotcp(), prune()]
+library(rpart.plot) # Decision trees plotting [rpart.plot()]
+library(MLmetrics) # Custom metrics (F1 score for example)
+
+packs <- c("tidyverse","tidyr","corrplot","caret","factoextra","cluster",
+           "dendextend","kableExtra","ggcorrplot","mosaic","psych","gridExtra","LICORS","forcats",
+           "randomForest","pdp","gmodels")
+lapply(packs, library, character.only = TRUE)
+```
+
+```{r}
+#small bank data set
+sbank <- read.csv("bank-additional.csv", stringsAsFactors = TRUE, sep=";")
+
+#big bank data set
+bank <- read.csv("bank-additional-full.csv",
+                    header = TRUE, sep =";")
+```
+
+```{r}
+sum(is.na.data.frame(bank))
+bank <- bank %>% dplyr::rename("deposit"="y")
+bank <- bank[!duplicated(bank), ]
+bank$duration <- NULL
+bank$default <- NULL
+
+tally(~bank$deposit)
+bank$deposit <- as.numeric(bank$deposit)
+bank$deposit <- factor(bank$deposit, levels=c(2,1), labels=c("Yes", "No"))
+
+month_recode = c("mar" = "(03)mar",
+                 "apr" = "(04)apr",
+                 "may" = "(05)may",
+                 "jun" = "(06)jun",
+                 "jul" = "(07)jul",
+                 "aug" = "(08)aug",
+                 "sep" = "(09)sep",
+                 "oct" = "(10)oct",
+                 "nov" = "(11)nov",
+                 "dec" = "(12)dec")
+
+bank = bank %>% 
+  mutate(month = recode(month, !!!month_recode))
+
+day_recode = c("mon" = "(01)mon","tue" = "(02)tue","wed" = "(03)wed","thu" = "(04)thu","fri" = "(05)fri")
+
+bank = bank %>% 
+  mutate(day_of_week = recode(day_of_week, !!!day_recode))
+```
+
+
+```{r}
+
+# EDA -----
+tab1 <- table(bank$deposit)
+prop.table(tab1)
+
+ggplot(bank, aes(x=fct_rev(fct_infreq((job))))) +
+  geom_bar(fill="blue")+
+  coord_flip()+
+  theme_bw()+
+  labs(x="Job Title", y="Count")
+
+ggplot(bank, aes(x=fct_rev(fct_infreq(deposit)))) + 
+  geom_bar(fill="darkblue") +
+  coord_flip() + 
+  theme_bw() + 
+  labs(x="Marital Status", y="Count")
+
+ggplot(bank, aes(x=euribor3m, fill=deposit)) + 
+  geom_histogram(bins=30)+
+  facet_wrap(~deposit)
+
+aggregate(bank[, 18], list(bank$deposit), median)
+
+ggplot(bank, aes(x=month)) + 
+  geom_bar()
+summary(bank$deposit)
+
+ggplot(bank, aes(pdays)) +
+  geom_histogram() +
+  facet_grid(~deposit)
+```
+
+```{r}
+
+bank %>% 
+  select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed) %>% 
+  cor() %>% 
+  corrplot(method = "number",
+           type = "upper",
+           tl.cex = 0.8,
+           tl.srt = 35,
+           tl.col = "black")
+
+
+fxtable = function(df, var1, var2){
+  # df: dataframe containing both vars
+  # var1, var2: columns to cross together.
+  CrossTable(df[, var1], df[, var2],
+             prop.r = T,
+             prop.c = F,
+             prop.t = F,
+             prop.chisq = F,
+             dnn = c(var1, var2))
+}
+
+
+bank2 <- bank %>% 
+  mutate(age = if_else(age > 60, "high", if_else(age > 30, "mid", "low")))
+
+#fxtables
+# fxtable(bank2, "age","deposit")
+# fxtable(bank2, "job", "deposit")
+# fxtable(bank2,"marital","deposit")
+# fxtable(bank2,"education", "deposit")
+# fxtable(bank2,"default","deposit")
+# fxtable(bank2,"housing","deposit")
+# fxtable(bank2,"loan","deposit")
+# fxtable(bank2,"contact","deposit")
+# fxtable(bank2,"month","deposit")
+# fxtable(bank2,"day_of_week","deposit")
+# fxtable(bank2,"campaign","deposit")
+# fxtable(bank2, "previous", "deposit")
+# fxtable(bank2, "poutcome","deposit")
+# fxtable(bank2,"pdays_d","deposit")
+
+```
+
+```{r}
+# DATA ADJUSTMENT -----
+#filtered out 
+bank <- bank %>% 
+  filter(job != "unknown") %>% 
+  filter(marital !="unknown") %>%
+  filter(education !="illiterate")
+
+bank2 <- bank2 %>% 
+  mutate(pdays_d=if_else(pdays==999, "0","1")) %>% 
+  select(-pdays)
+
+tally(~bank2$campaign)
+
+```
+
+```{r}
+library(e1071)  # naive Bayes package
+bank <- bank %>% dplyr::rename("y"="deposit")
+
+bank_nb <- mutate(bank,y=ifelse(bank$y == "Yes", 1, 0))
+bank_dum <- fastDummies::dummy_cols(bank_nb, remove_selected_columns = TRUE)
+#split data into training and test data sets
+indxTrain <- createDataPartition(y = bank_dum$y,p = 0.75,list = FALSE)
+training <- bank_dum[indxTrain,]
+testing <- bank_dum[-indxTrain,]
+
+# Check dimensions of the split: they should all be exactly the same..?
+prop.table(table(bank_dum$y)) * 100
+prop.table(table(training$y)) * 100
+prop.table(table(testing$y)) * 100
+
+#create objects x which holds the predictor variables and y which holds the response variables
+x <- subset(training, select = -c(y))
+y = training$y
+y <- lapply(y, factor)
+
+y_training<-lapply(training$y, factor)
+y_training<-unlist(y, use.names=FALSE)
+
+y_testing<-lapply(testing$y, factor)
+y_testing<-unlist(y, use.names=FALSE)
+
+# Laplace smoothing
+nb_laplace1 <- naiveBayes(as.factor(y)~., data=training, laplace=1)
+laplace1_pred <- predict(nb_laplace1, testing, type="class")
+# laplace1_pred
+
+conf_mat = table(laplace1_pred, testing$y,dnn=c("Prediction","Actual"))
+conf_mat
+# 
+confusionMatrix(laplace1_pred, as.factor(testing$y))
+```
+
+
+```{r}
+## Hierarchical Clustering
+X.quanti <- PCAmixdata::splitmix(bank)$X.quanti
+X.quali <- PCAmixdata::splitmix(bank)$X.quali
+#also get rid of identical qualitative categories
+X.quali = mutate(X.quali,
+                housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
+                loan = ifelse(loan == "yes", "yes_loan", "no_loan"))
+# Center and scale the quantitative data
+X.quanti_sc = scale(X.quanti, center=TRUE, scale=TRUE)
+
+tree <- hclustvar(X.quanti_sc, X.quali)
+plot(tree)  # dendrogram
+
+```
+
+```{r}
+
+# stability: bootstrap approach to help identify number of clusters
+# stab = stability(tree,B=50)
+# plot(stab,main="Stability of the partitions")
+# boxplot(stab$matCR[,1:7])
+```
+
+
+```{r}
+part<-cutreevar(tree,6) #cut of the tree
+summary(part)
+# Gain in cohesion (in %):  50.26
+res.plot <- plot.clustvar(part) # plot of loadings of each cluster
+res.plot$coord.quanti
+res.plot$coord.levels
+```
+
+```{r}
+# convert back to what Kyle had originally
+names(bank)[names(bank) == "y"] <- "deposit"
+```
+
+```{r}
+# LOGISTIC -----
+bank3 <- bank
+bank3$loan <- NULL
+bank3$nr.employed <- NULL
+
+bank3$deposit <- (as.numeric(bank3$deposit) -1)
+
+xtabs(~bank3$deposit)
+
+set.seed(343)
+ind = createDataPartition(bank3$deposit,
+                          times = 1,
+                          p = 0.75,
+                          list = F)
+bank3_train = bank3[ind, ]
+bank3_test = bank3[-ind, ]
+
+b_mod <- glm(deposit ~ ., family="binomial", data=bank3_train)
+summary(b_mod)
+b_modpred = predict(b_mod, bank3_test, type = "response")
+
+bpred <- ifelse(b_modpred<0.5, 1, 0)
+
+table(y=bank3_test$deposit, yhat=bpred)
+confusionMatrix(data=factor(bpred), reference = factor(bank3_test$deposit))
+
+b_mod2 <- glm(deposit~.,family="binomial", data=bank3)
+car::vif(b_mod2)
+tally(~bank3$housing)
+predicted.data <- data.frame(
+  probability.of.dep=b_mod2$fitted.values,
+  dep=bank3$deposit)
+
+predicted.data <- predicted.data[
+  order(predicted.data$probability.of.dep, decreasing=FALSE),]
+predicted.data$rank <- 1:nrow(predicted.data)
+
+#Plotting Predicted Probability 
+ggplot(data=predicted.data, aes(x=rank, y=probability.of.dep)) +
+  geom_point(aes(color=dep), size=3, alpha=0.8) +
+  xlab("Index") +
+  ylab("Predicted probability of Deposit")
+```
+
+
+
+```{r}
+# RANDOM FOREST -----
+n = nrow(bank)
+n_train = floor(0.8*n)
+n_test = n - n_train
+train_cases = sample.int(n, size=n_train, replace=FALSE)
+y_all = bank$deposit
+x_all = model.matrix(~age+job+marital+education+housing+loan+contact+month+day_of_week
+                     +campaign+pdays+previous+poutcome+emp.var.rate+cons.price.idx+cons.conf.idx
+                     +euribor3m+nr.employed, data=bank)
+
+y_train = y_all[train_cases]
+x_train = x_all[train_cases,]
+
+y_test = y_all[-train_cases]
+x_test = x_all[-train_cases,]
+
+bank_train = bank[train_cases,]
+bank_test = bank[-train_cases,]
+
+forest1 = randomForest(deposit ~ ., data=bank_train)
+
+yhat_test = predict(forest1, bank_test)
+
+plot(yhat_test, y_test)
+forest1$predicted
+?randomForest
+
+# performance as a function of iteration number
+plot(forest1)
+
+# a variable importance plot: how much SSE decreases from including each var
+varImpPlot(forest1)
+table(yhat_test,y_test)
+confusionMatrix(yhat_test,y_test)
+
+
+p1 = pdp::partial(forest1, pred.var = 'job')
+p1
+plot(p1)
+
+```
+
+
+```{r}
+fun_cut_predict = function(score, cut) {
+  # score: predicted scores
+  # cut: threshold for classification
+  
+  classes = score
+  classes[classes > cut] = 1
+  classes[classes <= cut] = 0
+  classes = as.factor(classes)
+  
+  return(classes)  
+}
+```
+
+
+```{r}
+library(ROCR)
+
+
+b_mod
+b_modprobs <- predict(b_mod, bank3_test)
+
+
+prediction(b_modprobs, bank3_test$deposit)
+           # , type="probs")
+
+
+
+
+
+library(cutpointr)
+?cutpointr
+cutpointr(data=bank, b_modprobs, deposit)
+
+
+optimal_cutpoint <- optimal.cutpoints(
+  X = "score",
+  status = "true",
+  tag.healthy = "No",
+  methods = "MaxSpSe",
+  data = data.frame(score = b_modpred
+                    , true = bank3_test$deposit),
+  control = control.cutpoints()
+)
+optimal_cutpoint <- optimal_cutpoint$MaxSpSe$Global$optimal.cutoff$cutoff[1]
+
+
+```
