@@ -43,7 +43,7 @@ bank <- bank %>% dplyr::rename("deposit"="y")
 bank <- bank[!duplicated(bank), ]
 bank$duration <- NULL
 bank$default <- NULL
-bank$pdays <- NULL
+
 bank$deposit <- factor(bank$deposit)
 xtabs(~bank$deposit)
 month_recode = c("mar" = "(03)mar",
@@ -65,6 +65,7 @@ day_recode = c("mon" = "(01)mon","tue" = "(02)tue","wed" = "(03)wed","thu" = "(0
 bank = bank %>% 
   mutate(day_of_week = recode(day_of_week, !!!day_recode))
 
+set.seed(512)
 ```
 
 ```{r}
@@ -140,13 +141,12 @@ bank %>%
 ```
 
 ```{r}
+bank9 <- bank %>% dplyr::rename("y"="deposit")
 
-bank <- bank %>% dplyr::rename("y"="deposit")
-
-bank_nb <- mutate(bank,y=ifelse(bank$y == "Yes", 1, 0))
+bank_nb <- bank9 %>% mutate(y=ifelse(bank9$y == "yes", 1, 0))
 bank_dum <- fastDummies::dummy_cols(bank_nb, remove_selected_columns = TRUE)
 #split data into training and test data sets
-indxTrain <- createDataPartition(y = bank_dum$y,p = 0.75,list = FALSE)
+indxTrain <- caret::createDataPartition(bank_dum$y,p = 0.75,list = FALSE)
 training <- bank_dum[indxTrain,]
 testing <- bank_dum[-indxTrain,]
 
@@ -196,17 +196,17 @@ probs <- predict(nb_laplace5, x_test, type="raw")
 pred <- prediction(probs[, "1"], testing$y)
 perf_nb <- performance(pred, measure='tpr', x.measure='fpr')
 plot(perf_nb)
-auc_perf <- performance(pred, 'auc')
-auc_perf
-print(auc_perf@y.values)
+auc_perf_nb <- performance(pred, 'auc')
+auc_perf_nb
+nb_auc <- print(auc_perf_nb@y.values)
 ```
 
 
 ```{r}
 ## Hierarchical Clustering
-bank = subset(bank, select = -c(pdays))
-X.quanti <- PCAmixdata::splitmix(bank)$X.quanti
-X.quali <- PCAmixdata::splitmix(bank)$X.quali
+bank7 = bank
+X.quanti <- PCAmixdata::splitmix(bank7)$X.quanti
+X.quali <- PCAmixdata::splitmix(bank7)$X.quali
 #also get rid of identical qualitative categories
 X.quali = mutate(X.quali,
                 housing = ifelse(housing == "yes", "yes_housing", "no_housing"),
@@ -235,7 +235,6 @@ names(bank)[names(bank) == "y"] <- "deposit"
 
 ```{r}
 # LOGISTIC -----
-set.seed(512)
 bank3 <- bank
 bank3$loan <- NULL
 bank3$nr.employed <- NULL
@@ -262,7 +261,6 @@ confusionMatrix(data=factor(bpred), reference = factor(bank3_test$deposit))
 ```
 
 ```{r}
-
 # DECISION TREE -----
 bank6 = bank
 bank6 <- select(bank, -nr.employed)
@@ -301,7 +299,7 @@ prune_1se = function(treefit) {
 tree_pred <-predict(fit.tree, load_test, type = 'class')
 tree_predict <-predict(fit.tree, load_test, type = 'prob')
 
-dtr_table <- table(load_test$deposit, predict)
+dtr_table <- table(load_test$deposit, tree_pred)
 dtr_table
 confusionMatrix(tree_pred, load_test$deposit, positive = 'yes')
 ```
@@ -314,7 +312,7 @@ n_test = n - n_train
 train_cases = sample.int(n, size=n_train, replace=FALSE)
 y_all = bank$deposit
 x_all = model.matrix(~age+job+marital+education+housing+loan+contact+month+day_of_week
-                     +campaign+pdays+previous+poutcome+emp.var.rate+cons.price.idx+cons.conf.idx
+                     +campaign+previous+poutcome+emp.var.rate+cons.price.idx+cons.conf.idx
                      +euribor3m+nr.employed, data=bank)
 
 y_train = y_all[train_cases]
@@ -332,8 +330,9 @@ yhat_test = predict(forest1, bank_test)
 varImpPlot(forest1)
 table(yhat_test,y_test)
 confusionMatrix(yhat_test, y_test, positive="yes")
+```
 
-
+```{r}
 # MODELS FOR ROC -----
 bank1<- bank
 
@@ -390,8 +389,9 @@ evaluation_tbl <- tibble(true_class = test_data$deposit,
                          dtr_dep=pred_dtr$yes)
 
 options(yardstick.event_first = FALSE)
+```
 
-
+```{r}
 # PLOTTING ROC -----
 # creating data for ploting ROC curve
 roc_curve_logistic <- roc_curve(evaluation_tbl, true_class, logistic_dep) %>% 
@@ -420,6 +420,4 @@ roc_curve_combine_tbl %>%
        y = 'Sensitity')
 
 ```
-
-
 
