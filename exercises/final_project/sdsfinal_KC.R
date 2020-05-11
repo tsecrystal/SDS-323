@@ -1,6 +1,3 @@
-library(plotROC) # ROC Curve with ggplot [geom_roc()]
-library(pROC) # AUC computation [auc()]
-library(PRROC) # AUPR computation [pr.curve()]
 
 packs <- c("tidyverse","tidyr","corrplot","caret","cluster","mosaic","glmnet","gamlr","dplyr","lubridate",
            "dendextend","kableExtra","ggcorrplot","mosaic","psych","gridExtra","LICORS","forcats","naniar",
@@ -67,7 +64,6 @@ fxtable(bank2,"day_of_week","deposit")
 fxtable(bank2,"campaign","deposit")
 fxtable(bank2, "previous", "deposit")
 fxtable(bank2, "poutcome","deposit")
-fxtable(bank2,"pdays_d","deposit")
 
 # DATA ADJUSTMENT -----
 #filtered out 
@@ -100,9 +96,6 @@ ggplot(bank, aes(x=euribor3m, fill=deposit)) +
   facet_wrap(~deposit)
 
 aggregate(bank[, 18], list(bank$deposit), median)
-
-ggplot(bank, aes(x=month, fill=deposit)) + 
-  geom_bar()
 
 bank %>% 
   select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed) %>% 
@@ -268,16 +261,17 @@ evaluation_tbl <- tibble(true_class = test_data$deposit,
 
 options(yardstick.event_first = FALSE)
 
+
 # PLOTTING ROC -----
 # creating data for ploting ROC curve
 roc_curve_logistic <- roc_curve(evaluation_tbl, true_class, logistic_dep) %>% 
-  mutate(model = 'logistic')
+  mutate(model = 'Logistic')
 
 roc_curve_rf <- roc_curve(evaluation_tbl, true_class, rf_dep) %>% 
-  mutate(model = 'RF')
+  mutate(model = 'Random Forest')
 
 roc_curve_dtree <- roc_curve(evaluation_tbl, true_class, dtr_dep) %>% 
-  mutate(model = 'decisiontree')
+  mutate(model = 'Decision Tree')
 
 logistic_auc <- roc_auc(evaluation_tbl, true_class, logistic_dep)
 rf_auc <- roc_auc(evaluation_tbl, true_class, rf_dep)
