@@ -142,6 +142,7 @@ p2 <- bank %>%
 ```
 
 ```{r echo=FALSE, include=FALSE}
+# NAIVE BAYES -----
 bank9 <- bank %>% dplyr::rename("y"="deposit")
 
 bank_nb <- bank9 %>% mutate(y=ifelse(bank9$y == "yes", 1, 0))
@@ -438,5 +439,14 @@ plot(tree)
 rpart.plot(fit.tree, extra = 106)
 #roc plot
 rocnroll
+#nb CM
+table(predict(nb_laplace5, x), y_testing)
+#logistic CM
+table(yhat=bpred, y=bank3_test$deposit)
+#decision tree CM
+table(tree_pred, load_test$deposit)
+#RF CM
+table(yhat_test,y_test)
+
 ```
 
