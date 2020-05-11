@@ -431,7 +431,7 @@ To summarize, logistic regression, naive Bayes, hierarchical clustering, decisio
 # Results
 The random forest model predictably had a high accuracy, due to the imbalanced data set described above. The model produced a high specificity but had a low sensitivity; the model predicts a lot of false negatives but few false positives. However, it should be noted that the random forest model had a higher sensitivity than the logistic regression and decision tree models. This was to be expected but yields tangible results for the bank. This implies that the bank can accurately determine whether a person will subscribe to a term deposit, since there are few false positives, but may also accidentally rule out candidates that are actually likely to subscribe, since the model has a high false negative rate. The bank should not hastily dismiss a potential customer base, so it is worth considering how to reduce this false negative rate.
 
-The variable importance plot for random forests demonstrates that euribor3 is the most important variable, followed closely by age (Fig. 2). 
+The variable importance plot for random forests demonstrates that euribor3 and age are the most important, and are of roughly the same magnitude of importance (Fig. 2).
 
 ```{r warning = FALSE}
 # RF var imp plot
